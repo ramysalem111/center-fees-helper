@@ -144,7 +144,9 @@ function GroupScreen() {
       <header className="min-w-0">
         <h1 className="truncate text-2xl font-extrabold">{group?.name ?? "المجموعة"}</h1>
         <p className="text-sm text-muted-foreground">
-          {group ? `${BILLING_SYSTEM[group.billing_system]} • ${EGP(group.fee)} • ${(group.study_days ?? []).join("، ")}` : ""}
+          {group
+            ? `${BILLING_SYSTEM[group.billing_system]} • ${EGP(group.fee)} • ${(group.study_days ?? []).join("، ")}${group.is_active && group.activated_at ? ` • مُفعَّلة من ${monthAr(group.activated_at)}` : ""}`
+            : ""}
         </p>
       </header>
 
