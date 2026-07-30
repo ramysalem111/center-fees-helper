@@ -37,7 +37,6 @@ function PaymentsPage() {
   const [payDue, setPayDue] = useState<any | null>(null);
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
-  const [cycleGroup, setCycleGroup] = useState("");
   const [newOpen, setNewOpen] = useState(false);
 
   const { data: lookups } = useQuery({
