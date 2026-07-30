@@ -138,7 +138,7 @@ export async function removeUnpaidDues(studentId: string, groupId?: string | nul
 export async function syncStudentDues(studentId: string) {
   const { data: s } = await supabase
     .from("students")
-    .select("id, status, archived, group_id, final_amount")
+    .select("id, status, archived, group_id, final_amount, created_at")
     .eq("id", studentId)
     .maybeSingle();
   if (!s) return;
@@ -166,6 +166,12 @@ export async function syncStudentDues(studentId: string) {
   if (staleIds.length) await supabase.from("dues").delete().in("id", staleIds);
 
   if (!g?.is_active) return;
+
+  // الطالب المسجّل قبل شهر تفعيل المجموعة لا يستحق دفع
+  if (!isStudentDueEligible(s.created_at, g.activated_at)) {
+    await removeUnpaidDues(studentId, s.group_id);
+    return;
+  }
 
   const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 7));
   if (!labels.length) return;
