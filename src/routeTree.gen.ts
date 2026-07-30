@@ -16,6 +16,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups.index'
 import { Route as AuthenticatedGroupsGroupIdRouteImport } from './routes/_authenticated/groups.$groupId'
@@ -54,6 +55,11 @@ const AuthenticatedPaymentsRoute = AuthenticatedPaymentsRouteImport.update({
   path: '/payments',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedStudentsRoute = AuthenticatedStudentsRouteImport.update({
   id: '/students',
   path: '/students',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/payments': typeof AuthenticatedPaymentsRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/students': typeof AuthenticatedStudentsRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/groups/': typeof AuthenticatedGroupsIndexRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/payments': typeof AuthenticatedPaymentsRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/students': typeof AuthenticatedStudentsRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/groups': typeof AuthenticatedGroupsIndexRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/payments': typeof AuthenticatedPaymentsRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
   '/_authenticated/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/payments'
+    | '/reports'
     | '/students'
     | '/groups/$groupId'
     | '/groups/'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/payments'
+    | '/reports'
     | '/students'
     | '/groups/$groupId'
     | '/groups'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/expenses'
     | '/_authenticated/payments'
+    | '/_authenticated/reports'
     | '/_authenticated/students'
     | '/_authenticated/groups/$groupId'
     | '/_authenticated/groups/'
@@ -201,6 +213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPaymentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/students': {
       id: '/_authenticated/students'
       path: '/students'
@@ -230,6 +249,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
   AuthenticatedGroupsGroupIdRoute: typeof AuthenticatedGroupsGroupIdRoute
   AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
@@ -240,6 +260,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedPaymentsRoute: AuthenticatedPaymentsRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
   AuthenticatedGroupsGroupIdRoute: AuthenticatedGroupsGroupIdRoute,
   AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
