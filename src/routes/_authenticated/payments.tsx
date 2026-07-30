@@ -525,16 +525,28 @@ function NewPaymentForm({
         )}
         <div className="space-y-1.5">
           <Label>الخصم</Label>
-          <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+          <Input
+            type="number"
+            value={discount}
+            disabled={fullExempt}
+            onChange={(e) => setDiscount(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">تخفيض جزئي من قيمة الشهر</p>
         </div>
-        <div className="space-y-1.5">
-          <Label>الإعفاء</Label>
-          <Input type="number" value={exemption} onChange={(e) => setExemption(e.target.value)} />
+        <div className="space-y-1.5 rounded-lg border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label>إعفاء كامل من الشهر</Label>
+            <Switch checked={fullExempt} onCheckedChange={setFullExempt} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            لا يُحصَّل أي مبلغ ويُسجَّل الشهر كـ«إعفاء من الشهر»
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label>المبلغ المدفوع</Label>
           <Input
             type="number"
+            disabled={fullExempt}
             value={amount === "" ? String(net || "") : amount}
             onChange={(e) => setAmount(e.target.value)}
           />
