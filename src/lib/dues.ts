@@ -62,15 +62,25 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
 
   const { data: existing } = await supabase
     .from("dues")
-    .select("student_id, period_label")
-    .eq("group_id", groupId)
+    .select("id, student_id, period_label, group_id, paid_amount")
+    .in("student_id", students.map((s) => s.id))
     .in("period_label", labels);
-  const have = new Set((existing ?? []).map((d) => `${d.student_id}|${d.period_label}`));
+  const byKey = new Map((existing ?? []).map((d) => [`${d.student_id}|${d.period_label}`, d]));
 
   const rows: any[] = [];
   for (const label of labels) {
     for (const s of students) {
-      if (have.has(`${s.id}|${label}`)) continue;
+      const prev = byKey.get(`${s.id}|${label}`);
+      if (prev) {
+        // استحقاق موجود لنفس الشهر: لو مدفوع لا نكرره، ولو غير مدفوع ننقله للمجموعة الجديدة
+        if (Number(prev.paid_amount ?? 0) <= 0 && prev.group_id !== groupId) {
+          await supabase
+            .from("dues")
+            .update({ group_id: groupId, amount: Number(s.final_amount ?? 0) })
+            .eq("id", prev.id);
+        }
+        continue;
+      }
       rows.push({
         student_id: s.id,
         group_id: groupId,
@@ -84,6 +94,76 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
   const { error } = await supabase.from("dues").insert(rows);
   if (error) throw error;
   return rows.length;
+}
+
+/**
+ * عند إيقاف الطالب أو إخراجه من المجموعة: حذف الاستحقاقات غير المدفوعة
+ * (الاستحقاقات المدفوعة أو المدفوعة جزئياً تبقى كسجل مالي).
+ */
+export async function removeUnpaidDues(studentId: string, groupId?: string | null) {
+  let q = supabase.from("dues").delete().eq("student_id", studentId).lte("paid_amount", 0);
+  if (groupId) q = q.eq("group_id", groupId);
+  const { error } = await q;
+  if (error) throw error;
+}
+
+/**
+ * مزامنة استحقاقات الطالب بعد تعديل بياناته:
+ * - موقوف / منسحب / مؤرشف / بدون مجموعة => لا استحقاق (تُحذف غير المدفوعة).
+ * - انتقل لمجموعة أخرى => تُنقل الاستحقاقات غير المدفوعة للمجموعة الجديدة،
+ *   والأشهر المدفوعة بالفعل لا يتم إنشاء استحقاق جديد لها.
+ */
+export async function syncStudentDues(studentId: string) {
+  const { data: s } = await supabase
+    .from("students")
+    .select("id, status, archived, group_id, final_amount")
+    .eq("id", studentId)
+    .maybeSingle();
+  if (!s) return;
+
+  const inactive = s.status !== "active" || s.archived || !s.group_id;
+  if (inactive) {
+    await removeUnpaidDues(studentId);
+    return;
+  }
+
+  const { data: g } = await supabase
+    .from("groups")
+    .select("id, is_active, activated_at, billing_system")
+    .eq("id", s.group_id as string)
+    .maybeSingle();
+
+  // استحقاقات غير مدفوعة تخص مجموعات قديمة => تُحذف
+  const { data: stale } = await supabase
+    .from("dues")
+    .select("id, group_id, paid_amount")
+    .eq("student_id", studentId)
+    .lte("paid_amount", 0);
+  const staleIds = (stale ?? []).filter((d) => d.group_id && d.group_id !== s.group_id).map((d) => d.id);
+  if (staleIds.length) await supabase.from("dues").delete().in("id", staleIds);
+
+  if (!g?.is_active || g.billing_system !== "monthly") return;
+
+  const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 10));
+  if (!labels.length) return;
+
+  const { data: existing } = await supabase
+    .from("dues")
+    .select("period_label")
+    .eq("student_id", studentId)
+    .in("period_label", labels);
+  const have = new Set((existing ?? []).map((d) => d.period_label));
+
+  const rows = labels
+    .filter((l) => !have.has(l))
+    .map((l) => ({
+      student_id: studentId,
+      group_id: s.group_id,
+      amount: Number(s.final_amount ?? 0),
+      period_label: l,
+      due_date: `${l}-01`,
+    }));
+  if (rows.length) await supabase.from("dues").insert(rows);
 }
 
 /** يضمن وجود استحقاق لشهر محدد لطالب محدد ويرجعه (لمنع التكرار) */
