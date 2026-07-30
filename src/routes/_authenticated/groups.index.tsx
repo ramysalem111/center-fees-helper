@@ -299,6 +299,7 @@ function GroupsPage() {
                       collection_type_id: g.collection_type_id ?? "",
                       fee: String(g.fee),
                       status_id: g.status_id ?? "",
+                      activated_at: g.activated_at ?? "",
                       study_days: g.study_days ?? [],
                       schedule_time: g.schedule_time ?? "",
                     });
