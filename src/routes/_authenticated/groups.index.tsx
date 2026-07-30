@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Power } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EGP, WEEK_DAYS } from "@/lib/format";
+import { EGP, WEEK_DAYS, dateAr, todayISO } from "@/lib/format";
+import { generateGroupMonthlyDues } from "@/lib/dues";
 
 export const Route = createFileRoute("/_authenticated/groups/")({
   head: () => ({
@@ -115,6 +116,29 @@ function GroupsPage() {
       setOpen(false);
       setForm(emptyGroup);
       qc.invalidateQueries({ queryKey: ["groups"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const activate = useMutation({
+    mutationFn: async (g: any) => {
+      if (g.is_active) {
+        const { error } = await supabase.from("groups").update({ is_active: false }).eq("id", g.id);
+        if (error) throw error;
+        return 0;
+      }
+      const activatedAt = g.activated_at ?? todayISO();
+      const { error } = await supabase
+        .from("groups")
+        .update({ is_active: true, activated_at: activatedAt })
+        .eq("id", g.id);
+      if (error) throw error;
+      return await generateGroupMonthlyDues(g.id, activatedAt);
+    },
+    onSuccess: (n) => {
+      toast.success(n ? `تم التفعيل وتوليد ${n} استحقاق` : "تم تحديث حالة التفعيل");
+      qc.invalidateQueries({ queryKey: ["groups"] });
+      qc.invalidateQueries({ queryKey: ["dues"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -243,8 +267,11 @@ function GroupsPage() {
                 <Badge variant="outline">{g.collection_types?.name ?? (g.billing_type === "prepaid" ? "مقدم" : "مؤخر")}</Badge>
                 <Badge variant="outline">{EGP(g.fee)}</Badge>
                 <Badge variant="secondary">{g.students?.[0]?.count ?? 0} طالب</Badge>
+                <Badge variant={g.is_active ? "default" : "outline"}>
+                  {g.is_active ? `مُفعَّلة من ${dateAr(g.activated_at)}` : "غير مُفعَّلة"}
+                </Badge>
               </div>
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-wrap gap-2 pt-1">
                 <Button asChild size="sm" className="gap-1">
                   <Link to="/groups/$groupId" params={{ groupId: g.id }}>
                     فتح الشاشة <ArrowLeft className="size-4" />
@@ -270,6 +297,15 @@ function GroupsPage() {
                   }}
                 >
                   تعديل
+                </Button>
+                <Button
+                  size="sm"
+                  variant={g.is_active ? "secondary" : "default"}
+                  className="gap-1"
+                  disabled={activate.isPending}
+                  onClick={() => activate.mutate(g)}
+                >
+                  <Power className="size-4" /> {g.is_active ? "إيقاف التفعيل" : "تفعيل المجموعة"}
                 </Button>
               </div>
             </CardContent>
