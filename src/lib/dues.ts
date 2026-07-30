@@ -24,6 +24,20 @@ export const monthAr = (label: string) => {
   );
 };
 
+/** شهر (YYYY-MM) من تاريخ */
+export const monthOf = (date?: string | null) => (date ? String(date).slice(0, 7) : "");
+
+/**
+ * الطالب المسجّل في المجموعة قبل شهر تفعيل المجموعة لا يستحق دفع.
+ * ترجع true لو الطالب مستحق (تسجيله في شهر التفعيل أو بعده).
+ */
+export const isStudentDueEligible = (studentCreatedAt?: string | null, activatedAt?: string | null) => {
+  const joined = monthOf(studentCreatedAt);
+  const start = (activatedAt ?? "").slice(0, 7);
+  if (!joined || !start) return true;
+  return joined >= start;
+};
+
 /**
  * يولّد الاستحقاقات الشهرية لكل مجموعة مُفعَّلة، من شهر التفعيل حتى الشهر الحالي،
  * بدون تكرار نفس الشهر لنفس الطالب.
