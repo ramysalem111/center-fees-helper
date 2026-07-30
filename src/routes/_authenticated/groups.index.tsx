@@ -37,6 +37,7 @@ const emptyGroup = {
   collection_type_id: "",
   fee: "0",
   status_id: "",
+  activated_at: "" as string,
   study_days: [] as string[],
   schedule_time: "04:00 م - 06:00 م",
 };
