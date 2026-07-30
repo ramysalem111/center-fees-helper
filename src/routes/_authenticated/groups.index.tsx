@@ -89,7 +89,7 @@ function GroupsPage() {
       const system = (lookups?.systems ?? []).find((s: any) => s.id === form.billing_system_id) as any;
       const collection = (lookups?.collections ?? []).find((c: any) => c.id === form.collection_type_id) as any;
       const groupStatus = (lookups?.statuses ?? []).find((s: any) => s.id === form.status_id) as any;
-      const payload = {
+      const payload: any = {
         name: form.name.trim(),
         academic_year_id: form.academic_year_id || null,
         location_id: form.location_id || null,
@@ -109,16 +109,21 @@ function GroupsPage() {
         study_days: form.study_days,
         schedule_time: form.schedule_time,
       };
+      if (form.id && form.activated_at) payload.activated_at = form.activated_at;
       const { error } = form.id
         ? await supabase.from("groups").update(payload).eq("id", form.id)
         : await supabase.from("groups").insert(payload);
       if (error) throw error;
+      if (form.id && form.activated_at) {
+        await generateGroupMonthlyDues(form.id, form.activated_at);
+      }
     },
     onSuccess: () => {
       toast.success("تم حفظ المجموعة");
       setOpen(false);
       setForm(emptyGroup);
       qc.invalidateQueries({ queryKey: ["groups"] });
+      qc.invalidateQueries({ queryKey: ["dues"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
