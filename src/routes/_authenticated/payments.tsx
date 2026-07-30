@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { MessageCircle, Plus, RefreshCw, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { generateMonthlyDues, generateSessionDues } from "@/lib/dues";
+import { ensureDueForMonth, generateMonthlyDues, generateSessionDues, monthAr } from "@/lib/dues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +66,21 @@ function PaymentsPage() {
     },
   });
 
+  /** آخر تاريخ دفع لكل طالب — يظهر مع حالات عدم الدفع */
+  const { data: lastPaid = {} } = useQuery({
+    queryKey: ["last-payments"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payments")
+        .select("student_id, paid_at")
+        .order("paid_at", { ascending: false })
+        .limit(2000);
+      const map: Record<string, string> = {};
+      for (const p of data ?? []) if (!map[p.student_id]) map[p.student_id] = p.paid_at;
+      return map;
+    },
+  });
+
   const genMonthly = useMutation({
     mutationFn: () => generateMonthlyDues(),
     onSuccess: (n) => {
@@ -102,6 +117,7 @@ function PaymentsPage() {
       setPayDue(null);
       setAmount("");
       qc.invalidateQueries({ queryKey: ["dues"] });
+      qc.invalidateQueries({ queryKey: ["last-payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -178,13 +194,14 @@ function PaymentsPage() {
                 <TableHead>المدفوع</TableHead>
                 <TableHead>الحالة</TableHead>
                 <TableHead>التاريخ</TableHead>
+                <TableHead>آخر دفع</TableHead>
                 <TableHead className="text-center">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">جارٍ التحميل...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">جارٍ التحميل...</TableCell></TableRow>}
               {!isLoading && dues.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">لا توجد استحقاقات</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">لا توجد استحقاقات</TableCell></TableRow>
               )}
               {dues.map((d: any) => (
                 <TableRow key={d.id}>
@@ -199,6 +216,13 @@ function PaymentsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{dateAr(d.due_date)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {d.status === "paid"
+                      ? "—"
+                      : (lastPaid as Record<string, string>)[d.student_id]
+                        ? dateAr((lastPaid as Record<string, string>)[d.student_id])
+                        : "لم يدفع من قبل"}
+                  </TableCell>
                   <TableCell>
                     <div className="flex justify-center gap-1">
                       <Button
