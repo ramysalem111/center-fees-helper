@@ -45,7 +45,7 @@ function GroupsPage() {
   const [form, setForm] = useState(emptyGroup);
   const [open, setOpen] = useState(false);
   const [activateTarget, setActivateTarget] = useState<any | null>(null);
-  const [activateDate, setActivateDate] = useState(todayISO());
+  const [activateMonth, setActivateMonth] = useState(todayISO().slice(0, 7));
   const qc = useQueryClient();
 
   const { data: lookups } = useQuery({
