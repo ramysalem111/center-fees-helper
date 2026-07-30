@@ -347,7 +347,7 @@ function NewPaymentForm({
   const [period, setPeriod] = useState(todayISO().slice(0, 7));
   const [amount, setAmount] = useState("");
   const [discount, setDiscount] = useState("0");
-  const [exemption, setExemption] = useState("0");
+  const [fullExempt, setFullExempt] = useState(false);
   const [paidAt, setPaidAt] = useState(todayISO());
   const [methodId, setMethodId] = useState("");
   const [notes, setNotes] = useState("");
@@ -411,30 +411,38 @@ function NewPaymentForm({
   const base = selectedDue
     ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
     : Number(selectedStudent?.final_amount ?? 0);
-  const net = Math.max(base - Number(discount || 0) - Number(exemption || 0), 0);
+  const net = fullExempt ? 0 : Math.max(base - Number(discount || 0), 0);
 
   const save = useMutation({
     mutationFn: async () => {
       if (!studentId) throw new Error("اختر الطالب");
       if (!period) throw new Error("اختر شهر الاستحقاق");
       if (alreadyPaid) throw new Error("تم تحصيل هذا الشهر بالكامل من قبل");
+
+      // إعفاء كامل: لا يتم تحصيل أي مبلغ ويُعلَّم الشهر كـ"إعفاء"
+      if (fullExempt) {
+        const exemptDue = await ensureDueForMonth(studentId, groupId || null, period);
+        const { error: exErr } = await supabase
+          .from("dues")
+          .update({ status: "exempt" })
+          .eq("id", exemptDue.id);
+        if (exErr) throw exErr;
+        return;
+      }
+
       const value = Number(amount || net);
       if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
 
       const due = await ensureDueForMonth(studentId, groupId || null, period);
 
-      if (Number(discount) > 0 || Number(exemption) > 0) {
-        const newAmount = Math.max(
-          Number(due.amount) - Number(discount || 0) - Number(exemption || 0),
-          0,
-        );
+      if (Number(discount) > 0) {
+        const newAmount = Math.max(Number(due.amount) - Number(discount || 0), 0);
         const { error: dErr } = await supabase.from("dues").update({ amount: newAmount }).eq("id", due.id);
         if (dErr) throw dErr;
       }
 
       const extra = [
         Number(discount) > 0 ? `خصم ${discount}` : "",
-        Number(exemption) > 0 ? `إعفاء ${exemption}` : "",
         notes.trim(),
       ]
         .filter(Boolean)
@@ -451,7 +459,7 @@ function NewPaymentForm({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("تم تسجيل الدفعة");
+      toast.success(fullExempt ? "تم إعفاء الطالب من هذا الشهر" : "تم تسجيل الدفعة");
       qc.invalidateQueries({ queryKey: ["dues"] });
       qc.invalidateQueries({ queryKey: ["last-payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
