@@ -271,7 +271,7 @@ function GroupsPage() {
                 <Badge variant="outline">{EGP(g.fee)}</Badge>
                 <Badge variant="secondary">{g.students?.[0]?.count ?? 0} طالب</Badge>
                 <Badge variant={g.is_active ? "default" : "outline"}>
-                  {g.is_active ? `مُفعَّلة من ${dateAr(g.activated_at)}` : "غير مُفعَّلة"}
+                  {g.is_active ? `مُفعَّلة من ${monthAr(g.activated_at)}` : "غير مُفعَّلة"}
                 </Badge>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
