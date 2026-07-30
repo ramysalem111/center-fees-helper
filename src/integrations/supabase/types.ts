@@ -723,7 +723,7 @@ export type Database = {
       attendance_status: "present" | "absent" | "makeup"
       billing_system: "monthly" | "per_8_sessions"
       billing_type: "prepaid" | "postpaid"
-      due_status: "unpaid" | "partial" | "paid"
+      due_status: "unpaid" | "partial" | "paid" | "exempt"
       entity_status: "active" | "inactive"
       group_status: "open" | "listed" | "finished" | "archived"
       student_status: "active" | "suspended" | "withdrawn"
@@ -858,7 +858,7 @@ export const Constants = {
       attendance_status: ["present", "absent", "makeup"],
       billing_system: ["monthly", "per_8_sessions"],
       billing_type: ["prepaid", "postpaid"],
-      due_status: ["unpaid", "partial", "paid"],
+      due_status: ["unpaid", "partial", "paid", "exempt"],
       entity_status: ["active", "inactive"],
       group_status: ["open", "listed", "finished", "archived"],
       student_status: ["active", "suspended", "withdrawn"],
