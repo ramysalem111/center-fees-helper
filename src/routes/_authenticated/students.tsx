@@ -140,10 +140,15 @@ function StudentsPage() {
         status: values.status as never,
         notes: values.notes.trim() || null,
       };
-      const { error } = values.id
-        ? await supabase.from("students").update(payload).eq("id", values.id)
-        : await supabase.from("students").insert(payload);
-      if (error) throw error;
+      if (values.id) {
+        const { error } = await supabase.from("students").update(payload).eq("id", values.id);
+        if (error) throw error;
+        await syncStudentDues(values.id);
+      } else {
+        const { data, error } = await supabase.from("students").insert(payload).select("id").single();
+        if (error) throw error;
+        if (data?.id) await syncStudentDues(data.id);
+      }
     },
     onSuccess: () => {
       toast.success("تم حفظ بيانات الطالب");
@@ -151,6 +156,7 @@ function StudentsPage() {
       setForm(empty);
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["dues"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
