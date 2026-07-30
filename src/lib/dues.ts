@@ -67,13 +67,15 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
   const labels = monthsFrom(start);
   if (!labels.length) return 0;
 
-  const { data: students } = await supabase
+  const { data: allStudents } = await supabase
     .from("students")
-    .select("id, final_amount")
+    .select("id, final_amount, created_at")
     .eq("group_id", groupId)
     .eq("status", "active")
     .eq("archived", false);
-  if (!students?.length) return 0;
+  // الطالب المسجّل قبل شهر تفعيل المجموعة لا يستحق دفع
+  const students = (allStudents ?? []).filter((s) => isStudentDueEligible(s.created_at, start));
+  if (!students.length) return 0;
 
   const { data: existing } = await supabase
     .from("dues")
