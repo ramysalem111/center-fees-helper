@@ -130,7 +130,7 @@ export async function syncStudentDues(studentId: string) {
   const { data: g } = await supabase
     .from("groups")
     .select("id, is_active, activated_at, billing_system")
-    .eq("id", s.group_id)
+    .eq("id", s.group_id as string)
     .maybeSingle();
 
   // استحقاقات غير مدفوعة تخص مجموعات قديمة => تُحذف
