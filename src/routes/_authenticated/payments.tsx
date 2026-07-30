@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DUE_STATUS, EGP, dateAr, todayISO, waLink } from "@/lib/format";
 
@@ -346,7 +347,7 @@ function NewPaymentForm({
   const [period, setPeriod] = useState(todayISO().slice(0, 7));
   const [amount, setAmount] = useState("");
   const [discount, setDiscount] = useState("0");
-  const [exemption, setExemption] = useState("0");
+  const [fullExempt, setFullExempt] = useState(false);
   const [paidAt, setPaidAt] = useState(todayISO());
   const [methodId, setMethodId] = useState("");
   const [notes, setNotes] = useState("");
@@ -410,30 +411,38 @@ function NewPaymentForm({
   const base = selectedDue
     ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
     : Number(selectedStudent?.final_amount ?? 0);
-  const net = Math.max(base - Number(discount || 0) - Number(exemption || 0), 0);
+  const net = fullExempt ? 0 : Math.max(base - Number(discount || 0), 0);
 
   const save = useMutation({
     mutationFn: async () => {
       if (!studentId) throw new Error("اختر الطالب");
       if (!period) throw new Error("اختر شهر الاستحقاق");
       if (alreadyPaid) throw new Error("تم تحصيل هذا الشهر بالكامل من قبل");
+
+      // إعفاء كامل: لا يتم تحصيل أي مبلغ ويُعلَّم الشهر كـ"إعفاء"
+      if (fullExempt) {
+        const exemptDue = await ensureDueForMonth(studentId, groupId || null, period);
+        const { error: exErr } = await supabase
+          .from("dues")
+          .update({ status: "exempt" })
+          .eq("id", exemptDue.id);
+        if (exErr) throw exErr;
+        return;
+      }
+
       const value = Number(amount || net);
       if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
 
       const due = await ensureDueForMonth(studentId, groupId || null, period);
 
-      if (Number(discount) > 0 || Number(exemption) > 0) {
-        const newAmount = Math.max(
-          Number(due.amount) - Number(discount || 0) - Number(exemption || 0),
-          0,
-        );
+      if (Number(discount) > 0) {
+        const newAmount = Math.max(Number(due.amount) - Number(discount || 0), 0);
         const { error: dErr } = await supabase.from("dues").update({ amount: newAmount }).eq("id", due.id);
         if (dErr) throw dErr;
       }
 
       const extra = [
         Number(discount) > 0 ? `خصم ${discount}` : "",
-        Number(exemption) > 0 ? `إعفاء ${exemption}` : "",
         notes.trim(),
       ]
         .filter(Boolean)
@@ -450,7 +459,7 @@ function NewPaymentForm({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("تم تسجيل الدفعة");
+      toast.success(fullExempt ? "تم إعفاء الطالب من هذا الشهر" : "تم تسجيل الدفعة");
       qc.invalidateQueries({ queryKey: ["dues"] });
       qc.invalidateQueries({ queryKey: ["last-payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -516,16 +525,28 @@ function NewPaymentForm({
         )}
         <div className="space-y-1.5">
           <Label>الخصم</Label>
-          <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+          <Input
+            type="number"
+            value={discount}
+            disabled={fullExempt}
+            onChange={(e) => setDiscount(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">تخفيض جزئي من قيمة الشهر</p>
         </div>
-        <div className="space-y-1.5">
-          <Label>الإعفاء</Label>
-          <Input type="number" value={exemption} onChange={(e) => setExemption(e.target.value)} />
+        <div className="space-y-1.5 rounded-lg border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label>إعفاء كامل من الشهر</Label>
+            <Switch checked={fullExempt} onCheckedChange={setFullExempt} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            لا يُحصَّل أي مبلغ ويُسجَّل الشهر كـ«إعفاء من الشهر»
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label>المبلغ المدفوع</Label>
           <Input
             type="number"
+            disabled={fullExempt}
             value={amount === "" ? String(net || "") : amount}
             onChange={(e) => setAmount(e.target.value)}
           />
@@ -548,11 +569,13 @@ function NewPaymentForm({
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <p className="sm:col-span-2 rounded-lg bg-muted p-2 text-sm">
-          المطلوب بعد الخصم والإعفاء: <strong>{EGP(net)}</strong>
+          {fullExempt ? "الطالب معفى من هذا الشهر — لن يُحصَّل أي مبلغ" : <>المطلوب بعد الخصم: <strong>{EGP(net)}</strong></>}
         </p>
       </div>
       <DialogFooter>
-        <Button disabled={save.isPending || alreadyPaid} onClick={() => save.mutate()}>حفظ الدفعة</Button>
+        <Button disabled={save.isPending || alreadyPaid} onClick={() => save.mutate()}>
+          {fullExempt ? "حفظ الإعفاء" : "حفظ الدفعة"}
+        </Button>
       </DialogFooter>
     </>
   );
