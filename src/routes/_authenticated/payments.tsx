@@ -301,7 +301,7 @@ function NewPaymentForm({
   const qc = useQueryClient();
   const [groupId, setGroupId] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [dueId, setDueId] = useState("");
+  const [period, setPeriod] = useState(todayISO().slice(0, 7));
   const [amount, setAmount] = useState("");
   const [discount, setDiscount] = useState("0");
   const [exemption, setExemption] = useState("0");
@@ -331,14 +331,40 @@ function NewPaymentForm({
         .from("dues")
         .select("*")
         .eq("student_id", studentId)
-        .neq("status", "paid")
         .order("due_date", { ascending: false });
       return data ?? [];
     },
   });
 
+  /** آخر دفعة للطالب */
+  const { data: lastPayment } = useQuery({
+    queryKey: ["pay-student-last", studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payments")
+        .select("paid_at, amount")
+        .eq("student_id", studentId)
+        .order("paid_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const monthOptions = (() => {
+    const out: string[] = [];
+    const now = new Date();
+    for (let i = -1; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    }
+    return out;
+  })();
+
   const selectedStudent = students.find((s: any) => s.id === studentId) as any;
-  const selectedDue = studentDues.find((d: any) => d.id === dueId) as any;
+  const selectedDue = studentDues.find((d: any) => d.period_label === period) as any;
+  const alreadyPaid = selectedDue?.status === "paid";
   const base = selectedDue
     ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
     : Number(selectedStudent?.final_amount ?? 0);
@@ -347,15 +373,19 @@ function NewPaymentForm({
   const save = useMutation({
     mutationFn: async () => {
       if (!studentId) throw new Error("اختر الطالب");
+      if (!period) throw new Error("اختر شهر الاستحقاق");
+      if (alreadyPaid) throw new Error("تم تحصيل هذا الشهر بالكامل من قبل");
       const value = Number(amount || net);
       if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
 
-      if (selectedDue && (Number(discount) > 0 || Number(exemption) > 0)) {
+      const due = await ensureDueForMonth(studentId, groupId || null, period);
+
+      if (Number(discount) > 0 || Number(exemption) > 0) {
         const newAmount = Math.max(
-          Number(selectedDue.amount) - Number(discount || 0) - Number(exemption || 0),
+          Number(due.amount) - Number(discount || 0) - Number(exemption || 0),
           0,
         );
-        const { error: dErr } = await supabase.from("dues").update({ amount: newAmount }).eq("id", selectedDue.id);
+        const { error: dErr } = await supabase.from("dues").update({ amount: newAmount }).eq("id", due.id);
         if (dErr) throw dErr;
       }
 
@@ -369,7 +399,7 @@ function NewPaymentForm({
 
       const { error } = await supabase.from("payments").insert({
         student_id: studentId,
-        due_id: dueId || null,
+        due_id: due.id,
         amount: value,
         payment_method_id: methodId || null,
         paid_at: paidAt,
@@ -380,6 +410,7 @@ function NewPaymentForm({
     onSuccess: () => {
       toast.success("تم تسجيل الدفعة");
       qc.invalidateQueries({ queryKey: ["dues"] });
+      qc.invalidateQueries({ queryKey: ["last-payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       onDone();
     },
@@ -393,7 +424,7 @@ function NewPaymentForm({
           <Label>المجموعة</Label>
           <Select
             value={groupId || undefined}
-            onValueChange={(v) => { setGroupId(v); setStudentId(""); setDueId(""); setAmount(""); }}
+            onValueChange={(v) => { setGroupId(v); setStudentId(""); setAmount(""); }}
           >
             <SelectTrigger><SelectValue placeholder="اختر المجموعة" /></SelectTrigger>
             <SelectContent>
@@ -405,7 +436,7 @@ function NewPaymentForm({
           <Label>الطالب</Label>
           <Select
             value={studentId || undefined}
-            onValueChange={(v) => { setStudentId(v); setDueId(""); setAmount(""); }}
+            onValueChange={(v) => { setStudentId(v); setAmount(""); }}
             disabled={!groupId}
           >
             <SelectTrigger><SelectValue placeholder={groupId ? "اختر الطالب" : "اختر المجموعة أولاً"} /></SelectTrigger>
@@ -418,17 +449,27 @@ function NewPaymentForm({
         </div>
         {studentId && (
           <div className="space-y-1.5 sm:col-span-2">
-            <Label>الاستحقاق</Label>
-            <Select value={dueId || undefined} onValueChange={(v) => { setDueId(v); setAmount(""); }}>
-              <SelectTrigger><SelectValue placeholder="بدون استحقاق (دفعة حرة)" /></SelectTrigger>
+            <Label>شهر الاستحقاق</Label>
+            <Select value={period} onValueChange={(v) => { setPeriod(v); setAmount(""); }}>
+              <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
               <SelectContent>
-                {studentDues.map((d: any) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.period_label} — متبقي {Number(d.amount) - Number(d.paid_amount)}
-                  </SelectItem>
-                ))}
+                {monthOptions.map((m) => {
+                  const d = studentDues.find((x: any) => x.period_label === m) as any;
+                  const label = d
+                    ? d.status === "paid"
+                      ? `${monthAr(m)} — مدفوع`
+                      : `${monthAr(m)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`
+                    : `${monthAr(m)} — بدون استحقاق`;
+                  return <SelectItem key={m} value={m}>{label}</SelectItem>;
+                })}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              آخر دفعة: {lastPayment ? dateAr(lastPayment.paid_at) : "لا توجد دفعات سابقة"}
+            </p>
+            {alreadyPaid && (
+              <p className="text-xs font-semibold text-destructive">تم تحصيل هذا الشهر بالفعل — اختر شهراً آخر.</p>
+            )}
           </div>
         )}
         <div className="space-y-1.5">
@@ -469,7 +510,7 @@ function NewPaymentForm({
         </p>
       </div>
       <DialogFooter>
-        <Button disabled={save.isPending} onClick={() => save.mutate()}>حفظ الدفعة</Button>
+        <Button disabled={save.isPending || alreadyPaid} onClick={() => save.mutate()}>حفظ الدفعة</Button>
       </DialogFooter>
     </>
   );
