@@ -89,6 +89,22 @@ function GroupScreen() {
     },
   });
 
+  const { data: lastPaid = {} } = useQuery({
+    queryKey: ["group-last-payments", groupId],
+    queryFn: async () => {
+      const ids = students.map((s: any) => s.id);
+      if (!ids.length) return {};
+      const { data } = await supabase
+        .from("payments")
+        .select("student_id, paid_at")
+        .in("student_id", ids)
+        .order("paid_at", { ascending: false });
+      const map: Record<string, string> = {};
+      for (const p of data ?? []) if (!map[p.student_id]) map[p.student_id] = p.paid_at;
+      return map;
+    },
+  });
+
   const addSession = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase
@@ -177,9 +193,16 @@ function GroupScreen() {
                     <TableCell>{EGP(s.final_amount)}</TableCell>
                     <TableCell>
                       {due ? (
-                        <Badge variant={due.status === "paid" ? "default" : "destructive"}>
-                          {DUE_STATUS[due.status]} — {due.period_label}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge className="w-fit" variant={due.status === "paid" ? "default" : "destructive"}>
+                            {DUE_STATUS[due.status]} — {due.period_label}
+                          </Badge>
+                          {due.status !== "paid" && (
+                            <span className="text-xs text-muted-foreground">
+                              آخر دفع: {(lastPaid as Record<string, string>)[s.id] ? dateAr((lastPaid as Record<string, string>)[s.id]) : "لا يوجد"}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
