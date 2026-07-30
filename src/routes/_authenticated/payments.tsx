@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MessageCircle, RefreshCw, Wallet } from "lucide-react";
+import { MessageCircle, Plus, RefreshCw, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { generateMonthlyDues, generateSessionDues } from "@/lib/dues";
@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DUE_STATUS, EGP, dateAr, todayISO, waLink } from "@/lib/format";
@@ -36,6 +37,7 @@ function PaymentsPage() {
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
   const [cycleGroup, setCycleGroup] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
@@ -109,9 +111,24 @@ function PaymentsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="min-w-0">
-        <h1 className="truncate text-2xl font-extrabold">المدفوعات والاستحقاقات</h1>
-        <p className="text-sm text-muted-foreground">المتبقي في القائمة الحالية: {EGP(total)}</p>
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-extrabold">المدفوعات والاستحقاقات</h1>
+          <p className="text-sm text-muted-foreground">المتبقي في القائمة الحالية: {EGP(total)}</p>
+        </div>
+        <Dialog open={newOpen} onOpenChange={setNewOpen}>
+          <DialogTrigger asChild>
+            <Button className="shrink-0 gap-2"><Plus className="size-4" /> دفع جديد</Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader><DialogTitle>تسجيل دفعة جديدة</DialogTitle></DialogHeader>
+            <NewPaymentForm
+              groups={lookups?.groups ?? []}
+              methods={lookups?.methods ?? []}
+              onDone={() => setNewOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </header>
 
       <Card>
