@@ -31,9 +31,8 @@ export const monthAr = (label: string) => {
 export async function generateMonthlyDues() {
   const { data: groups, error: gErr } = await supabase
     .from("groups")
-    .select("id, activated_at, is_active, billing_system")
-    .eq("is_active", true)
-    .eq("billing_system", "monthly");
+    .select("id, activated_at, is_active")
+    .eq("is_active", true);
   if (gErr) throw gErr;
   if (!groups?.length) return 0;
 
@@ -150,7 +149,7 @@ export async function syncStudentDues(studentId: string) {
   const staleIds = (stale ?? []).filter((d) => d.group_id && d.group_id !== s.group_id).map((d) => d.id);
   if (staleIds.length) await supabase.from("dues").delete().in("id", staleIds);
 
-  if (!g?.is_active || g.billing_system !== "monthly") return;
+  if (!g?.is_active) return;
 
   const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 7));
   if (!labels.length) return;
@@ -205,41 +204,9 @@ export async function ensureDueForMonth(studentId: string, groupId: string | nul
   return data;
 }
 
-/** يولّد استحقاق دورة (8 حصص) لطلاب مجموعة تعمل بنظام الحصص */
-export async function generateSessionDues(groupId: string) {
-  const { data: group } = await supabase.from("groups").select("id, name").eq("id", groupId).maybeSingle();
-  if (!group) throw new Error("المجموعة غير موجودة");
-
-  const { data: previous } = await supabase.from("dues").select("period_label").eq("group_id", groupId);
-  const cycles = new Set((previous ?? []).map((d) => d.period_label));
-  const label = `دورة ${cycles.size + 1} (8 حصص)`;
-
-  const { data: students } = await supabase
-    .from("students")
-    .select("id, final_amount")
-    .eq("group_id", groupId)
-    .eq("status", "active")
-    .eq("archived", false);
-
-  const { data: existing } = await supabase
-    .from("dues")
-    .select("student_id")
-    .eq("group_id", groupId)
-    .eq("period_label", label);
-  const have = new Set((existing ?? []).map((d) => d.student_id));
-
-  const rows = (students ?? [])
-    .filter((s) => !have.has(s.id))
-    .map((s) => ({
-      student_id: s.id,
-      group_id: groupId,
-      amount: Number(s.final_amount ?? 0),
-      period_label: label,
-      due_date: new Date().toISOString().slice(0, 10),
-    }));
-
-  if (!rows.length) return 0;
-  const { error } = await supabase.from("dues").insert(rows);
-  if (error) throw error;
-  return rows.length;
+/** بداية ونهاية الشهر (لصلاحية الدفع طوال الشهر) */
+export function monthRange(label: string) {
+  const [y, m] = label.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return { start: `${label}-01`, end: `${label}-${String(last).padStart(2, "0")}` };
 }

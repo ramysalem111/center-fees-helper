@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BanIcon, MessageCircle, Plus, RefreshCw, RotateCcw, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ensureDueForMonth, generateMonthlyDues, generateSessionDues, monthAr } from "@/lib/dues";
+import { ensureDueForMonth, generateMonthlyDues, monthAr } from "@/lib/dues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +37,6 @@ function PaymentsPage() {
   const [payDue, setPayDue] = useState<any | null>(null);
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
-  const [cycleGroup, setCycleGroup] = useState("");
   const [newOpen, setNewOpen] = useState(false);
 
   const { data: lookups } = useQuery({
@@ -86,15 +85,6 @@ function PaymentsPage() {
     mutationFn: () => generateMonthlyDues(),
     onSuccess: (n) => {
       toast.success(n ? `تم توليد ${n} استحقاق` : "لا توجد استحقاقات جديدة");
-      qc.invalidateQueries({ queryKey: ["dues"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const genCycle = useMutation({
-    mutationFn: () => generateSessionDues(cycleGroup),
-    onSuccess: (n) => {
-      toast.success(n ? `تم توليد ${n} استحقاق للدورة` : "لا توجد استحقاقات جديدة");
       qc.invalidateQueries({ queryKey: ["dues"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -184,19 +174,6 @@ function PaymentsPage() {
           <Button variant="outline" className="gap-2" onClick={() => genMonthly.mutate()} disabled={genMonthly.isPending}>
             <RefreshCw className="size-4" /> توليد استحقاقات الشهر
           </Button>
-          <div className="flex items-center gap-2">
-            <Select value={cycleGroup || undefined} onValueChange={setCycleGroup}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="مجموعة نظام 8 حصص" /></SelectTrigger>
-              <SelectContent>
-                {(lookups?.groups ?? [])
-                  .filter((g: any) => g.billing_system === "per_8_sessions")
-                  .map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" disabled={!cycleGroup || genCycle.isPending} onClick={() => genCycle.mutate()}>
-              توليد دورة
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
