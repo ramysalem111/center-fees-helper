@@ -13,8 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EGP, WEEK_DAYS, dateAr, todayISO } from "@/lib/format";
-import { generateGroupMonthlyDues } from "@/lib/dues";
+import { EGP, WEEK_DAYS, todayISO } from "@/lib/format";
+import { generateGroupMonthlyDues, monthAr } from "@/lib/dues";
 
 export const Route = createFileRoute("/_authenticated/groups/")({
   head: () => ({
