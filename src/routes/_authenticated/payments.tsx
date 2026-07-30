@@ -569,11 +569,13 @@ function NewPaymentForm({
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <p className="sm:col-span-2 rounded-lg bg-muted p-2 text-sm">
-          المطلوب بعد الخصم والإعفاء: <strong>{EGP(net)}</strong>
+          {fullExempt ? "الطالب معفى من هذا الشهر — لن يُحصَّل أي مبلغ" : <>المطلوب بعد الخصم: <strong>{EGP(net)}</strong></>}
         </p>
       </div>
       <DialogFooter>
-        <Button disabled={save.isPending || alreadyPaid} onClick={() => save.mutate()}>حفظ الدفعة</Button>
+        <Button disabled={save.isPending || alreadyPaid} onClick={() => save.mutate()}>
+          {fullExempt ? "حفظ الإعفاء" : "حفظ الدفعة"}
+        </Button>
       </DialogFooter>
     </>
   );
