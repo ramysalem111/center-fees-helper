@@ -85,6 +85,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "نظام متكامل لإدارة السنتر التعليمي: الطلاب والمجموعات والحضور والمدفوعات والمصروفات والتقارير.",
       },
       { name: "theme-color", content: "#0f766e" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "السنتر" },
       { property: "og:title", content: "نظام إدارة السنتر التعليمي" },
       {
         property: "og:description",
