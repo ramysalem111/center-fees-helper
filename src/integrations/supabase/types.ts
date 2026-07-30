@@ -376,6 +376,7 @@ export type Database = {
       groups: {
         Row: {
           academic_year_id: string | null
+          activated_at: string | null
           billing_system: Database["public"]["Enums"]["billing_system"]
           billing_system_id: string | null
           billing_type: Database["public"]["Enums"]["billing_type"]
@@ -383,6 +384,7 @@ export type Database = {
           created_at: string
           fee: number
           id: string
+          is_active: boolean
           location_id: string | null
           name: string
           notes: string | null
@@ -394,6 +396,7 @@ export type Database = {
         }
         Insert: {
           academic_year_id?: string | null
+          activated_at?: string | null
           billing_system?: Database["public"]["Enums"]["billing_system"]
           billing_system_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"]
@@ -401,6 +404,7 @@ export type Database = {
           created_at?: string
           fee?: number
           id?: string
+          is_active?: boolean
           location_id?: string | null
           name: string
           notes?: string | null
@@ -412,6 +416,7 @@ export type Database = {
         }
         Update: {
           academic_year_id?: string | null
+          activated_at?: string | null
           billing_system?: Database["public"]["Enums"]["billing_system"]
           billing_system_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"]
@@ -419,6 +424,7 @@ export type Database = {
           created_at?: string
           fee?: number
           id?: string
+          is_active?: boolean
           location_id?: string | null
           name?: string
           notes?: string | null

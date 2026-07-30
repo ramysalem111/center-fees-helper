@@ -24,7 +24,6 @@ export const Route = createFileRoute("/auth")({
 });
 
 const passwordSchema = z.string().min(6, "كلمة المرور 6 أحرف على الأقل").max(72);
-const emailSchema = z.string().trim().email("بريد إلكتروني غير صحيح").max(255);
 const phoneSchema = z
   .string()
   .trim()
@@ -33,13 +32,9 @@ const phoneSchema = z
 /** الهاتف يُحوَّل لبريد داخلي ثابت حتى يعمل الدخول بكلمة المرور */
 const phoneToEmail = (phone: string) => `p${phone}@phone.center.app`;
 
-type Identifier = "email" | "phone";
-
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [idType, setIdType] = useState<Identifier>("email");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -56,14 +51,12 @@ function AuthPage() {
       toast.error(pass.error.issues[0].message);
       return;
     }
-    const identifier =
-      idType === "email" ? emailSchema.safeParse(email) : phoneSchema.safeParse(phone);
+    const identifier = phoneSchema.safeParse(phone);
     if (!identifier.success) {
       toast.error(identifier.error.issues[0].message);
       return;
     }
-    const authEmail =
-      idType === "email" ? identifier.data : phoneToEmail(identifier.data);
+    const authEmail = phoneToEmail(identifier.data);
     setLoading(true);
     try {
       if (mode === "signin") {
@@ -81,7 +74,7 @@ function AuthPage() {
             emailRedirectTo: window.location.origin,
             data: {
               full_name: fullName,
-              phone: idType === "phone" ? identifier.data : "",
+              phone: identifier.data,
             },
           },
         });
@@ -105,39 +98,17 @@ function AuthPage() {
 
   const identifierField = (idSuffix: string) => (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <Label htmlFor={`identifier-${idSuffix}`}>
-          {idType === "email" ? "البريد الإلكتروني" : "رقم الهاتف"}
-        </Label>
-        <button
-          type="button"
-          className="text-xs font-semibold text-primary hover:underline"
-          onClick={() => setIdType(idType === "email" ? "phone" : "email")}
-        >
-          {idType === "email" ? "استخدام رقم الهاتف" : "استخدام البريد الإلكتروني"}
-        </button>
-      </div>
-      {idType === "email" ? (
-        <Input
-          id={`identifier-${idSuffix}`}
-          type="email"
-          dir="ltr"
-          placeholder="name@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      ) : (
-        <Input
-          id={`identifier-${idSuffix}`}
-          type="tel"
-          inputMode="numeric"
-          dir="ltr"
-          placeholder="01xxxxxxxxx"
-          maxLength={11}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-        />
-      )}
+      <Label htmlFor={`identifier-${idSuffix}`}>رقم الهاتف</Label>
+      <Input
+        id={`identifier-${idSuffix}`}
+        type="tel"
+        inputMode="numeric"
+        dir="ltr"
+        placeholder="01xxxxxxxxx"
+        maxLength={11}
+        value={phone}
+        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+      />
     </div>
   );
 
@@ -158,7 +129,7 @@ function AuthPage() {
           <CardHeader>
             <CardTitle>مرحباً بك</CardTitle>
           <CardDescription>
-            سجّل الدخول أو أنشئ حساباً جديداً بالبريد الإلكتروني أو رقم الهاتف
+            سجّل الدخول أو أنشئ حساباً جديداً برقم الهاتف
           </CardDescription>
           </CardHeader>
           <CardContent>

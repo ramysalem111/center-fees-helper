@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
+import { Route as AuthenticatedAttendanceRecordRouteImport } from './routes/_authenticated/attendance-record'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
@@ -42,6 +43,12 @@ const AuthenticatedAttendanceRoute = AuthenticatedAttendanceRouteImport.update({
   path: '/attendance',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAttendanceRecordRoute =
+  AuthenticatedAttendanceRecordRouteImport.update({
+    id: '/attendance-record',
+    path: '/attendance-record',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
+  '/attendance-record': typeof AuthenticatedAttendanceRecordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -109,6 +117,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
+  '/attendance-record': typeof AuthenticatedAttendanceRecordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -125,6 +134,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
+  '/_authenticated/attendance-record': typeof AuthenticatedAttendanceRecordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/attendance'
+    | '/attendance-record'
     | '/dashboard'
     | '/expenses'
     | '/notifications'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/attendance'
+    | '/attendance-record'
     | '/dashboard'
     | '/expenses'
     | '/notifications'
@@ -170,6 +182,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/attendance'
+    | '/_authenticated/attendance-record'
     | '/_authenticated/dashboard'
     | '/_authenticated/expenses'
     | '/_authenticated/notifications'
@@ -215,6 +228,13 @@ declare module '@tanstack/react-router' {
       path: '/attendance'
       fullPath: '/attendance'
       preLoaderRoute: typeof AuthenticatedAttendanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/attendance-record': {
+      id: '/_authenticated/attendance-record'
+      path: '/attendance-record'
+      fullPath: '/attendance-record'
+      preLoaderRoute: typeof AuthenticatedAttendanceRecordRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -285,6 +305,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
+  AuthenticatedAttendanceRecordRoute: typeof AuthenticatedAttendanceRecordRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
@@ -298,6 +319,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
+  AuthenticatedAttendanceRecordRoute: AuthenticatedAttendanceRecordRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
