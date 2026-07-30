@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ATTENDANCE_STATUS, BILLING_SYSTEM, DUE_STATUS, EGP, dateAr, todayISO } from "@/lib/format";
+import { monthAr } from "@/lib/dues";
 
 export const Route = createFileRoute("/_authenticated/groups/$groupId")({
   head: () => ({
@@ -143,7 +144,9 @@ function GroupScreen() {
       <header className="min-w-0">
         <h1 className="truncate text-2xl font-extrabold">{group?.name ?? "المجموعة"}</h1>
         <p className="text-sm text-muted-foreground">
-          {group ? `${BILLING_SYSTEM[group.billing_system]} • ${EGP(group.fee)} • ${(group.study_days ?? []).join("، ")}` : ""}
+          {group
+            ? `${BILLING_SYSTEM[group.billing_system]} • ${EGP(group.fee)} • ${(group.study_days ?? []).join("، ")}${group.is_active && group.activated_at ? ` • مُفعَّلة من ${monthAr(group.activated_at)}` : ""}`
+            : ""}
         </p>
       </header>
 

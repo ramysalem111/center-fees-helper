@@ -1,12 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 
-/** يرجع قائمة الأشهر (YYYY-MM) من تاريخ البداية حتى الشهر الحالي */
-export function monthsFrom(startISO: string): string[] {
-  const start = new Date(startISO);
+/** يرجع قائمة الأشهر (YYYY-MM) من شهر البداية حتى الشهر الحالي */
+export function monthsFrom(startLabel: string): string[] {
+  const [sy, sm] = (startLabel ?? "").split("-").map(Number);
+  if (!sy || !sm || sy < 2000) return [];
   const now = new Date();
   const out: string[] = [];
-  let y = start.getFullYear();
-  let m = start.getMonth();
+  let y = sy;
+  let m = sm - 1;
   while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
     out.push(`${y}-${String(m + 1).padStart(2, "0")}`);
     m += 1;
@@ -17,6 +18,7 @@ export function monthsFrom(startISO: string): string[] {
 
 export const monthAr = (label: string) => {
   const [y, m] = label.split("-");
+  if (!y || !m) return label;
   return new Intl.DateTimeFormat("ar-EG", { month: "long", year: "numeric" }).format(
     new Date(Number(y), Number(m) - 1, 1),
   );
@@ -42,12 +44,12 @@ export async function generateMonthlyDues() {
   return created;
 }
 
-/** يولّد استحقاقات مجموعة واحدة من تاريخ تفعيلها */
+/** يولّد استحقاقات مجموعة واحدة من شهر تفعيلها (YYYY-MM) */
 export async function generateGroupMonthlyDues(groupId: string, activatedAt?: string) {
   let start = activatedAt;
   if (!start) {
     const { data: g } = await supabase.from("groups").select("activated_at").eq("id", groupId).maybeSingle();
-    start = g?.activated_at ?? new Date().toISOString().slice(0, 10);
+    start = g?.activated_at ?? new Date().toISOString().slice(0, 7);
   }
   const labels = monthsFrom(start);
   if (!labels.length) return 0;
@@ -144,7 +146,7 @@ export async function syncStudentDues(studentId: string) {
 
   if (!g?.is_active || g.billing_system !== "monthly") return;
 
-  const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 10));
+  const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 7));
   if (!labels.length) return;
 
   const { data: existing } = await supabase

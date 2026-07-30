@@ -13,8 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EGP, WEEK_DAYS, dateAr, todayISO } from "@/lib/format";
-import { generateGroupMonthlyDues } from "@/lib/dues";
+import { EGP, WEEK_DAYS, todayISO } from "@/lib/format";
+import { generateGroupMonthlyDues, monthAr } from "@/lib/dues";
 
 export const Route = createFileRoute("/_authenticated/groups/")({
   head: () => ({
@@ -45,7 +45,7 @@ function GroupsPage() {
   const [form, setForm] = useState(emptyGroup);
   const [open, setOpen] = useState(false);
   const [activateTarget, setActivateTarget] = useState<any | null>(null);
-  const [activateDate, setActivateDate] = useState(todayISO());
+  const [activateMonth, setActivateMonth] = useState(todayISO().slice(0, 7));
   const qc = useQueryClient();
 
   const { data: lookups } = useQuery({
@@ -271,7 +271,7 @@ function GroupsPage() {
                 <Badge variant="outline">{EGP(g.fee)}</Badge>
                 <Badge variant="secondary">{g.students?.[0]?.count ?? 0} طالب</Badge>
                 <Badge variant={g.is_active ? "default" : "outline"}>
-                  {g.is_active ? `مُفعَّلة من ${dateAr(g.activated_at)}` : "غير مُفعَّلة"}
+                  {g.is_active ? `مُفعَّلة من ${monthAr(g.activated_at)}` : "غير مُفعَّلة"}
                 </Badge>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
@@ -308,9 +308,9 @@ function GroupsPage() {
                   disabled={activate.isPending}
                   onClick={() => {
                     if (g.is_active) {
-                      activate.mutate({ g, date: g.activated_at ?? todayISO() });
+                      activate.mutate({ g, date: g.activated_at ?? todayISO().slice(0, 7) });
                     } else {
-                      setActivateDate(g.activated_at ?? todayISO());
+                      setActivateMonth(g.activated_at ?? todayISO().slice(0, 7));
                       setActivateTarget(g);
                     }
                   }}
@@ -329,16 +329,26 @@ function GroupsPage() {
             <DialogTitle>تفعيل المجموعة {activateTarget?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5">
-            <Label>تاريخ التفعيل</Label>
-            <Input type="date" value={activateDate} onChange={(e) => setActivateDate(e.target.value)} />
+            <Label>شهر التفعيل</Label>
+            <Select value={activateMonth} onValueChange={setActivateMonth}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 24 }, (_, i) => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - 11 + i);
+                  const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                  return <SelectItem key={v} value={v}>{monthAr(v)}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-muted-foreground">
-              سيتم توليد استحقاق شهري لكل طلاب المجموعة بدءاً من هذا التاريخ.
+              سيتم توليد استحقاق شهري لكل طلاب المجموعة بدءاً من هذا الشهر.
             </p>
           </div>
           <DialogFooter>
             <Button
-              disabled={activate.isPending || !activateDate}
-              onClick={() => activate.mutate({ g: activateTarget, date: activateDate })}
+              disabled={activate.isPending || !activateMonth}
+              onClick={() => activate.mutate({ g: activateTarget, date: activateMonth })}
             >
               تفعيل وتوليد الاستحقاقات
             </Button>
