@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MessageCircle, Plus, RefreshCw, Wallet } from "lucide-react";
+import { BanIcon, MessageCircle, Plus, RefreshCw, RotateCcw, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { ensureDueForMonth, generateMonthlyDues, generateSessionDues, monthAr } from "@/lib/dues";
@@ -58,7 +58,7 @@ function PaymentsPage() {
         .select("*, students(full_name, code, phone, guardian_phone), groups(name)")
         .order("due_date", { ascending: false })
         .limit(500);
-      if (status !== "all") q = q.eq("status", status as "unpaid" | "partial" | "paid");
+      if (status !== "all") q = q.eq("status", status as "unpaid" | "partial" | "paid" | "exempt");
       if (groupId !== "all") q = q.eq("group_id", groupId);
       const { data, error } = await q;
       if (error) throw error;
@@ -124,6 +124,21 @@ function PaymentsPage() {
   });
 
   const total = dues.reduce((s: number, d: any) => s + Number(d.amount) - Number(d.paid_amount), 0);
+
+  const toggleExempt = useMutation({
+    mutationFn: async (due: any) => {
+      const next = due.status === "exempt" ? "unpaid" : "exempt";
+      const { error } = await supabase.from("dues").update({ status: next }).eq("id", due.id);
+      if (error) throw error;
+      return next;
+    },
+    onSuccess: (next) => {
+      toast.success(next === "exempt" ? "تم إعفاء الطالب من هذا الشهر" : "تم إلغاء الإعفاء");
+      qc.invalidateQueries({ queryKey: ["dues"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   return (
     <div className="space-y-4">
@@ -211,7 +226,17 @@ function PaymentsPage() {
                   <TableCell>{EGP(d.amount)}</TableCell>
                   <TableCell>{EGP(d.paid_amount)}</TableCell>
                   <TableCell>
-                    <Badge variant={d.status === "paid" ? "default" : d.status === "partial" ? "secondary" : "destructive"}>
+                    <Badge
+                      variant={
+                        d.status === "paid"
+                          ? "default"
+                          : d.status === "partial"
+                            ? "secondary"
+                            : d.status === "exempt"
+                              ? "outline"
+                              : "destructive"
+                      }
+                    >
                       {DUE_STATUS[d.status]}
                     </Badge>
                   </TableCell>
@@ -228,7 +253,7 @@ function PaymentsPage() {
                       <Button
                         size="sm"
                         className="gap-1"
-                        disabled={d.status === "paid"}
+                        disabled={d.status === "paid" || d.status === "exempt"}
                         onClick={() => {
                           setPayDue(d);
                           setAmount(String(Number(d.amount) - Number(d.paid_amount)));
@@ -236,6 +261,21 @@ function PaymentsPage() {
                       >
                         <Wallet className="size-4" /> تحصيل
                       </Button>
+                      {Number(d.paid_amount) <= 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          disabled={toggleExempt.isPending}
+                          onClick={() => toggleExempt.mutate(d)}
+                        >
+                          {d.status === "exempt" ? (
+                            <><RotateCcw className="size-4" /> إلغاء الإعفاء</>
+                          ) : (
+                            <><BanIcon className="size-4" /> إعفاء من الشهر</>
+                          )}
+                        </Button>
+                      )}
                       {waLink(d.students?.guardian_phone ?? d.students?.phone) && (
                         <Button asChild size="icon" variant="ghost">
                           <a
