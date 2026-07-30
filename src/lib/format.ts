@@ -63,6 +63,8 @@ export const DUE_STATUS: Record<string, string> = {
   paid: "مدفوع",
 };
 
+DUE_STATUS.exempt = "إعفاء من الشهر";
+
 export function waLink(phone: string | null | undefined, text = "") {
   if (!phone) return null;
   const clean = phone.replace(/\D/g, "").replace(/^0/, "20");
