@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MessageCircle, RefreshCw, Wallet } from "lucide-react";
+import { MessageCircle, Plus, RefreshCw, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { generateMonthlyDues, generateSessionDues } from "@/lib/dues";
@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DUE_STATUS, EGP, dateAr, todayISO, waLink } from "@/lib/format";
@@ -36,6 +37,7 @@ function PaymentsPage() {
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
   const [cycleGroup, setCycleGroup] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
@@ -109,9 +111,24 @@ function PaymentsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="min-w-0">
-        <h1 className="truncate text-2xl font-extrabold">المدفوعات والاستحقاقات</h1>
-        <p className="text-sm text-muted-foreground">المتبقي في القائمة الحالية: {EGP(total)}</p>
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-extrabold">المدفوعات والاستحقاقات</h1>
+          <p className="text-sm text-muted-foreground">المتبقي في القائمة الحالية: {EGP(total)}</p>
+        </div>
+        <Dialog open={newOpen} onOpenChange={setNewOpen}>
+          <DialogTrigger asChild>
+            <Button className="shrink-0 gap-2"><Plus className="size-4" /> دفع جديد</Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader><DialogTitle>تسجيل دفعة جديدة</DialogTitle></DialogHeader>
+            <NewPaymentForm
+              groups={lookups?.groups ?? []}
+              methods={lookups?.methods ?? []}
+              onDone={() => setNewOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </header>
 
       <Card>
@@ -245,5 +262,191 @@ function PaymentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function NewPaymentForm({
+  groups,
+  methods,
+  onDone,
+}: {
+  groups: any[];
+  methods: any[];
+  onDone: () => void;
+}) {
+  const qc = useQueryClient();
+  const [groupId, setGroupId] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [dueId, setDueId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [discount, setDiscount] = useState("0");
+  const [exemption, setExemption] = useState("0");
+  const [paidAt, setPaidAt] = useState(todayISO());
+  const [methodId, setMethodId] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const { data: students = [] } = useQuery({
+    queryKey: ["pay-students", groupId],
+    enabled: !!groupId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("id, full_name, code, fee, discount, exemption, final_amount")
+        .eq("group_id", groupId)
+        .eq("archived", false)
+        .order("full_name");
+      return data ?? [];
+    },
+  });
+
+  const { data: studentDues = [] } = useQuery({
+    queryKey: ["pay-student-dues", studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dues")
+        .select("*")
+        .eq("student_id", studentId)
+        .neq("status", "paid")
+        .order("due_date", { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  const selectedStudent = students.find((s: any) => s.id === studentId) as any;
+  const selectedDue = studentDues.find((d: any) => d.id === dueId) as any;
+  const base = selectedDue
+    ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
+    : Number(selectedStudent?.final_amount ?? 0);
+  const net = Math.max(base - Number(discount || 0) - Number(exemption || 0), 0);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!studentId) throw new Error("اختر الطالب");
+      const value = Number(amount || net);
+      if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+
+      if (selectedDue && (Number(discount) > 0 || Number(exemption) > 0)) {
+        const newAmount = Math.max(
+          Number(selectedDue.amount) - Number(discount || 0) - Number(exemption || 0),
+          0,
+        );
+        const { error: dErr } = await supabase.from("dues").update({ amount: newAmount }).eq("id", selectedDue.id);
+        if (dErr) throw dErr;
+      }
+
+      const extra = [
+        Number(discount) > 0 ? `خصم ${discount}` : "",
+        Number(exemption) > 0 ? `إعفاء ${exemption}` : "",
+        notes.trim(),
+      ]
+        .filter(Boolean)
+        .join(" — ");
+
+      const { error } = await supabase.from("payments").insert({
+        student_id: studentId,
+        due_id: dueId || null,
+        amount: value,
+        payment_method_id: methodId || null,
+        paid_at: paidAt,
+        notes: extra || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تسجيل الدفعة");
+      qc.invalidateQueries({ queryKey: ["dues"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>المجموعة</Label>
+          <Select
+            value={groupId || undefined}
+            onValueChange={(v) => { setGroupId(v); setStudentId(""); setDueId(""); setAmount(""); }}
+          >
+            <SelectTrigger><SelectValue placeholder="اختر المجموعة" /></SelectTrigger>
+            <SelectContent>
+              {groups.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>الطالب</Label>
+          <Select
+            value={studentId || undefined}
+            onValueChange={(v) => { setStudentId(v); setDueId(""); setAmount(""); }}
+            disabled={!groupId}
+          >
+            <SelectTrigger><SelectValue placeholder={groupId ? "اختر الطالب" : "اختر المجموعة أولاً"} /></SelectTrigger>
+            <SelectContent>
+              {students.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>#{s.code} — {s.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {studentId && (
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>الاستحقاق</Label>
+            <Select value={dueId || undefined} onValueChange={(v) => { setDueId(v); setAmount(""); }}>
+              <SelectTrigger><SelectValue placeholder="بدون استحقاق (دفعة حرة)" /></SelectTrigger>
+              <SelectContent>
+                {studentDues.map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.period_label} — متبقي {Number(d.amount) - Number(d.paid_amount)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <Label>الخصم</Label>
+          <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>الإعفاء</Label>
+          <Input type="number" value={exemption} onChange={(e) => setExemption(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>المبلغ المدفوع</Label>
+          <Input
+            type="number"
+            value={amount === "" ? String(net || "") : amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>تاريخ الدفع</Label>
+          <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>طريقة الدفع</Label>
+          <Select value={methodId || undefined} onValueChange={setMethodId}>
+            <SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger>
+            <SelectContent>
+              {methods.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>ملاحظات</Label>
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <p className="sm:col-span-2 rounded-lg bg-muted p-2 text-sm">
+          المطلوب بعد الخصم والإعفاء: <strong>{EGP(net)}</strong>
+        </p>
+      </div>
+      <DialogFooter>
+        <Button disabled={save.isPending} onClick={() => save.mutate()}>حفظ الدفعة</Button>
+      </DialogFooter>
+    </>
   );
 }

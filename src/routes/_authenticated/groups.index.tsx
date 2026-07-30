@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BILLING_SYSTEM, BILLING_TYPE, EGP, GROUP_STATUS, WEEK_DAYS } from "@/lib/format";
+import { EGP, WEEK_DAYS } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/groups/")({
   head: () => ({
@@ -32,10 +32,10 @@ const emptyGroup = {
   name: "",
   academic_year_id: "",
   location_id: "",
-  billing_system: "monthly",
-  billing_type: "prepaid",
+  billing_system_id: "",
+  collection_type_id: "",
   fee: "0",
-  status: "open",
+  status_id: "",
   study_days: [] as string[],
   schedule_time: "04:00 م - 06:00 م",
 };
@@ -48,11 +48,20 @@ function GroupsPage() {
   const { data: lookups } = useQuery({
     queryKey: ["group-lookups"],
     queryFn: async () => {
-      const [years, locations] = await Promise.all([
+      const [years, locations, systems, collections, statuses] = await Promise.all([
         supabase.from("academic_years").select("id, name").order("sort_order"),
         supabase.from("locations").select("id, name").order("name"),
+        supabase.from("billing_systems").select("id, name, kind").eq("status", "active").order("sort_order"),
+        supabase.from("collection_types").select("id, name, code").eq("status", "active").order("sort_order"),
+        supabase.from("group_statuses").select("id, name, code").eq("status", "active").order("sort_order"),
       ]);
-      return { years: years.data ?? [], locations: locations.data ?? [] };
+      return {
+        years: years.data ?? [],
+        locations: locations.data ?? [],
+        systems: systems.data ?? [],
+        collections: collections.data ?? [],
+        statuses: statuses.data ?? [],
+      };
     },
   });
 
@@ -61,7 +70,9 @@ function GroupsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("groups")
-        .select("*, academic_years(name), locations(name), students(count)")
+        .select(
+          "*, academic_years(name), locations(name), students(count), billing_systems(name, kind), collection_types(name, code), group_statuses(name, code)",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -71,14 +82,26 @@ function GroupsPage() {
   const save = useMutation({
     mutationFn: async () => {
       if (form.name.trim().length < 2) throw new Error("اسم المجموعة مطلوب");
+      const system = (lookups?.systems ?? []).find((s: any) => s.id === form.billing_system_id) as any;
+      const collection = (lookups?.collections ?? []).find((c: any) => c.id === form.collection_type_id) as any;
+      const groupStatus = (lookups?.statuses ?? []).find((s: any) => s.id === form.status_id) as any;
       const payload = {
         name: form.name.trim(),
         academic_year_id: form.academic_year_id || null,
         location_id: form.location_id || null,
-        billing_system: form.billing_system as "monthly" | "per_8_sessions",
-        billing_type: form.billing_type as "prepaid" | "postpaid",
+        billing_system_id: form.billing_system_id || null,
+        collection_type_id: form.collection_type_id || null,
+        status_id: form.status_id || null,
+        billing_system: (system?.kind === "sessions" ? "per_8_sessions" : "monthly") as
+          | "monthly"
+          | "per_8_sessions",
+        billing_type: (collection?.code === "postpaid" ? "postpaid" : "prepaid") as "prepaid" | "postpaid",
         fee: Number(form.fee) || 0,
-        status: form.status as "open" | "listed" | "finished" | "archived",
+        status: (groupStatus?.code === "finished" ? "finished" : "listed") as
+          | "open"
+          | "listed"
+          | "finished"
+          | "archived",
         study_days: form.study_days,
         schedule_time: form.schedule_time,
       };
@@ -134,19 +157,19 @@ function GroupsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>نظام الدفع</Label>
-                <Select value={form.billing_system} onValueChange={(v) => setForm({ ...form, billing_system: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select value={form.billing_system_id || undefined} onValueChange={(v) => setForm({ ...form, billing_system_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(BILLING_SYSTEM).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    {(lookups?.systems ?? []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>نوع التحصيل</Label>
-                <Select value={form.billing_type} onValueChange={(v) => setForm({ ...form, billing_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select value={form.collection_type_id || undefined} onValueChange={(v) => setForm({ ...form, collection_type_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(BILLING_TYPE).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    {(lookups?.collections ?? []).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -156,10 +179,10 @@ function GroupsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>الحالة</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select value={form.status_id || undefined} onValueChange={(v) => setForm({ ...form, status_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(GROUP_STATUS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    {(lookups?.statuses ?? []).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -203,8 +226,8 @@ function GroupsPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <CardTitle className="min-w-0 truncate text-base">{g.name}</CardTitle>
-                <Badge className="ms-auto shrink-0" variant={g.status === "open" ? "default" : "secondary"}>
-                  {GROUP_STATUS[g.status]}
+                <Badge className="ms-auto shrink-0" variant={g.status === "finished" ? "secondary" : "default"}>
+                  {g.group_statuses?.name ?? (g.status === "finished" ? "منتهية" : "قائمة")}
                 </Badge>
               </div>
             </CardHeader>
@@ -216,8 +239,8 @@ function GroupsPage() {
                 {(g.study_days ?? []).join("، ") || "بدون أيام"} — {g.schedule_time ?? "—"}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">{BILLING_SYSTEM[g.billing_system]}</Badge>
-                <Badge variant="outline">{BILLING_TYPE[g.billing_type]}</Badge>
+                <Badge variant="outline">{g.billing_systems?.name ?? (g.billing_system === "monthly" ? "شهري" : "كل 8 حصص")}</Badge>
+                <Badge variant="outline">{g.collection_types?.name ?? (g.billing_type === "prepaid" ? "مقدم" : "مؤخر")}</Badge>
                 <Badge variant="outline">{EGP(g.fee)}</Badge>
                 <Badge variant="secondary">{g.students?.[0]?.count ?? 0} طالب</Badge>
               </div>
@@ -236,10 +259,10 @@ function GroupsPage() {
                       name: g.name,
                       academic_year_id: g.academic_year_id ?? "",
                       location_id: g.location_id ?? "",
-                      billing_system: g.billing_system,
-                      billing_type: g.billing_type,
+                      billing_system_id: g.billing_system_id ?? "",
+                      collection_type_id: g.collection_type_id ?? "",
                       fee: String(g.fee),
-                      status: g.status,
+                      status_id: g.status_id ?? "",
                       study_days: g.study_days ?? [],
                       schedule_time: g.schedule_time ?? "",
                     });

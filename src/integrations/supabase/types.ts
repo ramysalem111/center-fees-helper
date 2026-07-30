@@ -83,6 +83,36 @@ export type Database = {
           },
         ]
       }
+      billing_systems: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          sort_order: number
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       center_settings: {
         Row: {
           center_name: string
@@ -141,6 +171,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      collection_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       dues: {
         Row: {
@@ -283,11 +343,43 @@ export type Database = {
         }
         Relationships: []
       }
+      group_statuses: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       groups: {
         Row: {
           academic_year_id: string | null
           billing_system: Database["public"]["Enums"]["billing_system"]
+          billing_system_id: string | null
           billing_type: Database["public"]["Enums"]["billing_type"]
+          collection_type_id: string | null
           created_at: string
           fee: number
           id: string
@@ -296,13 +388,16 @@ export type Database = {
           notes: string | null
           schedule_time: string | null
           status: Database["public"]["Enums"]["group_status"]
+          status_id: string | null
           study_days: string[]
           updated_at: string
         }
         Insert: {
           academic_year_id?: string | null
           billing_system?: Database["public"]["Enums"]["billing_system"]
+          billing_system_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"]
+          collection_type_id?: string | null
           created_at?: string
           fee?: number
           id?: string
@@ -311,13 +406,16 @@ export type Database = {
           notes?: string | null
           schedule_time?: string | null
           status?: Database["public"]["Enums"]["group_status"]
+          status_id?: string | null
           study_days?: string[]
           updated_at?: string
         }
         Update: {
           academic_year_id?: string | null
           billing_system?: Database["public"]["Enums"]["billing_system"]
+          billing_system_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"]
+          collection_type_id?: string | null
           created_at?: string
           fee?: number
           id?: string
@@ -326,6 +424,7 @@ export type Database = {
           notes?: string | null
           schedule_time?: string | null
           status?: Database["public"]["Enums"]["group_status"]
+          status_id?: string | null
           study_days?: string[]
           updated_at?: string
         }
@@ -338,10 +437,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "groups_billing_system_id_fkey"
+            columns: ["billing_system_id"]
+            isOneToOne: false
+            referencedRelation: "billing_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groups_collection_type_id_fkey"
+            columns: ["collection_type_id"]
+            isOneToOne: false
+            referencedRelation: "collection_types"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "groups_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groups_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "group_statuses"
             referencedColumns: ["id"]
           },
         ]
