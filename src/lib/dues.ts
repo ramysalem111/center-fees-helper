@@ -44,12 +44,12 @@ export async function generateMonthlyDues() {
   return created;
 }
 
-/** يولّد استحقاقات مجموعة واحدة من تاريخ تفعيلها */
+/** يولّد استحقاقات مجموعة واحدة من شهر تفعيلها (YYYY-MM) */
 export async function generateGroupMonthlyDues(groupId: string, activatedAt?: string) {
   let start = activatedAt;
   if (!start) {
     const { data: g } = await supabase.from("groups").select("activated_at").eq("id", groupId).maybeSingle();
-    start = g?.activated_at ?? new Date().toISOString().slice(0, 10);
+    start = g?.activated_at ?? new Date().toISOString().slice(0, 7);
   }
   const labels = monthsFrom(start);
   if (!labels.length) return 0;
