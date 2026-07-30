@@ -36,9 +36,8 @@ const emptyGroup = {
   billing_type: "prepaid",
   fee: "0",
   status: "open",
-  days: [] as number[],
-  start_time: "16:00",
-  end_time: "18:00",
+  study_days: [] as string[],
+  schedule_time: "04:00 م - 06:00 م",
 };
 
 function GroupsPage() {
@@ -76,13 +75,12 @@ function GroupsPage() {
         name: form.name.trim(),
         academic_year_id: form.academic_year_id || null,
         location_id: form.location_id || null,
-        billing_system: form.billing_system as never,
-        billing_type: form.billing_type as never,
+        billing_system: form.billing_system as "monthly" | "per_8_sessions",
+        billing_type: form.billing_type as "prepaid" | "postpaid",
         fee: Number(form.fee) || 0,
-        status: form.status as never,
-        days: form.days,
-        start_time: form.start_time,
-        end_time: form.end_time,
+        status: form.status as "open" | "listed" | "finished" | "archived",
+        study_days: form.study_days,
+        schedule_time: form.schedule_time,
       };
       const { error } = form.id
         ? await supabase.from("groups").update(payload).eq("id", form.id)
@@ -165,25 +163,23 @@ function GroupsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>من الساعة</Label>
-                <Input type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>إلى الساعة</Label>
-                <Input type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>الميعاد</Label>
+                <Input value={form.schedule_time} onChange={(e) => setForm({ ...form, schedule_time: e.target.value })} placeholder="مثال: 04:00 م - 06:00 م" />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>أيام المحاضرات</Label>
                 <div className="flex flex-wrap gap-3">
-                  {WEEK_DAYS.map((d, i) => (
+                  {WEEK_DAYS.map((d) => (
                     <label key={d} className="flex items-center gap-1.5 text-sm">
                       <Checkbox
-                        checked={form.days.includes(i)}
+                        checked={form.study_days.includes(d)}
                         onCheckedChange={(c) =>
                           setForm({
                             ...form,
-                            days: c ? [...form.days, i].sort() : form.days.filter((x) => x !== i),
+                            study_days: c
+                              ? [...form.study_days, d]
+                              : form.study_days.filter((x) => x !== d),
                           })
                         }
                       />
@@ -217,8 +213,7 @@ function GroupsPage() {
                 {g.academic_years?.name ?? "—"} • {g.locations?.name ?? "—"}
               </p>
               <p>
-                {(g.days ?? []).map((d: number) => WEEK_DAYS[d]).join("، ") || "بدون مواعيد"} —{" "}
-                {String(g.start_time).slice(0, 5)}
+                {(g.study_days ?? []).join("، ") || "بدون أيام"} — {g.schedule_time ?? "—"}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{BILLING_SYSTEM[g.billing_system]}</Badge>
@@ -245,9 +240,8 @@ function GroupsPage() {
                       billing_type: g.billing_type,
                       fee: String(g.fee),
                       status: g.status,
-                      days: g.days ?? [],
-                      start_time: String(g.start_time).slice(0, 5),
-                      end_time: String(g.end_time).slice(0, 5),
+                      study_days: g.study_days ?? [],
+                      schedule_time: g.schedule_time ?? "",
                     });
                     setOpen(true);
                   }}
