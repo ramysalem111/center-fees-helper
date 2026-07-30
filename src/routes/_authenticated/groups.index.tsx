@@ -44,6 +44,8 @@ const emptyGroup = {
 function GroupsPage() {
   const [form, setForm] = useState(emptyGroup);
   const [open, setOpen] = useState(false);
+  const [activateTarget, setActivateTarget] = useState<any | null>(null);
+  const [activateDate, setActivateDate] = useState(todayISO());
   const qc = useQueryClient();
 
   const { data: lookups } = useQuery({
@@ -121,13 +123,13 @@ function GroupsPage() {
   });
 
   const activate = useMutation({
-    mutationFn: async (g: any) => {
+    mutationFn: async ({ g, date }: { g: any; date: string }) => {
       if (g.is_active) {
         const { error } = await supabase.from("groups").update({ is_active: false }).eq("id", g.id);
         if (error) throw error;
         return 0;
       }
-      const activatedAt = g.activated_at ?? todayISO();
+      const activatedAt = date || todayISO();
       const { error } = await supabase
         .from("groups")
         .update({ is_active: true, activated_at: activatedAt })
@@ -137,6 +139,7 @@ function GroupsPage() {
     },
     onSuccess: (n) => {
       toast.success(n ? `تم التفعيل وتوليد ${n} استحقاق` : "تم تحديث حالة التفعيل");
+      setActivateTarget(null);
       qc.invalidateQueries({ queryKey: ["groups"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
     },
@@ -303,7 +306,14 @@ function GroupsPage() {
                   variant={g.is_active ? "secondary" : "default"}
                   className="gap-1"
                   disabled={activate.isPending}
-                  onClick={() => activate.mutate(g)}
+                  onClick={() => {
+                    if (g.is_active) {
+                      activate.mutate({ g, date: g.activated_at ?? todayISO() });
+                    } else {
+                      setActivateDate(g.activated_at ?? todayISO());
+                      setActivateTarget(g);
+                    }
+                  }}
                 >
                   <Power className="size-4" /> {g.is_active ? "إيقاف التفعيل" : "تفعيل المجموعة"}
                 </Button>
@@ -312,6 +322,29 @@ function GroupsPage() {
           </Card>
         ))}
       </div>
+
+      <Dialog open={!!activateTarget} onOpenChange={(o) => !o && setActivateTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>تفعيل المجموعة {activateTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label>تاريخ التفعيل</Label>
+            <Input type="date" value={activateDate} onChange={(e) => setActivateDate(e.target.value)} />
+            <p className="text-xs text-muted-foreground">
+              سيتم توليد استحقاق شهري لكل طلاب المجموعة بدءاً من هذا التاريخ.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={activate.isPending || !activateDate}
+              onClick={() => activate.mutate({ g: activateTarget, date: activateDate })}
+            >
+              تفعيل وتوليد الاستحقاقات
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
