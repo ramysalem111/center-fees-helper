@@ -82,7 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "نظام متكامل لإدارة السنتر التعليمي: الطلاب والمجموعات والحضور والمدفوعات والمصروفات والتقارير.",
+          "إدارة الطلاب والمجموعات والحضور والمدفوعات والمصروفات والتقارير للسنتر التعليمي.",
       },
       { name: "theme-color", content: "#0f766e" },
       { name: "mobile-web-app-capable", content: "yes" },
@@ -92,10 +92,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "نظام إدارة السنتر التعليمي" },
       {
         property: "og:description",
-        content: "إدارة الطلاب والمجموعات والحضور والمدفوعات والتقارير في مكان واحد.",
+        content: "إدارة الطلاب والمجموعات والحضور والمدفوعات والمصروفات والتقارير للسنتر التعليمي.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "نظام إدارة السنتر التعليمي" },
+      { name: "twitter:description", content: "إدارة الطلاب والمجموعات والحضور والمدفوعات والمصروفات والتقارير للسنتر التعليمي." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c92cd4f1-844f-45fd-ac73-51b1c1acf69b/id-preview-dfd7f648--f6065324-d412-4bca-ab05-c69c4f730d96.lovable.app-1785414665276.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c92cd4f1-844f-45fd-ac73-51b1c1acf69b/id-preview-dfd7f648--f6065324-d412-4bca-ab05-c69c4f730d96.lovable.app-1785414665276.png" },
     ],
     links: [
       {
