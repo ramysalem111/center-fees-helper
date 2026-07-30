@@ -369,6 +369,14 @@ function StudentsPage() {
                       <Button size="icon" variant="ghost" onClick={() => edit(s)} aria-label="تعديل">
                         <Pencil className="size-4" />
                       </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => { setTarget(s); setPwd(""); }}
+                        aria-label="حذف"
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -377,6 +385,39 @@ function StudentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!target} onOpenChange={(o) => { if (!o) { setTarget(null); setPwd(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>تأكيد حذف الطالب</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              سيتم حذف <strong className="text-foreground">{target?.full_name}</strong> وكل استحقاقاته ومدفوعاته وحضوره
+              نهائياً. لا يمكن التراجع.
+            </p>
+            <F label="اكتب كلمة سر الحذف">
+              <Input
+                type="password"
+                dir="ltr"
+                value={pwd}
+                onChange={(e) => setPwd(e.target.value)}
+                placeholder="delete"
+              />
+            </F>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setTarget(null); setPwd(""); }}>إلغاء</Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending || pwd !== "delete"}
+              onClick={() => target && remove.mutate({ id: target.id, password: pwd })}
+            >
+              {remove.isPending ? "جارٍ الحذف..." : "حذف نهائي"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
