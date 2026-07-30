@@ -24,6 +24,20 @@ export const monthAr = (label: string) => {
   );
 };
 
+/** شهر (YYYY-MM) من تاريخ */
+export const monthOf = (date?: string | null) => (date ? String(date).slice(0, 7) : "");
+
+/**
+ * الطالب المسجّل في المجموعة قبل شهر تفعيل المجموعة لا يستحق دفع.
+ * ترجع true لو الطالب مستحق (تسجيله في شهر التفعيل أو بعده).
+ */
+export const isStudentDueEligible = (studentCreatedAt?: string | null, activatedAt?: string | null) => {
+  const joined = monthOf(studentCreatedAt);
+  const start = (activatedAt ?? "").slice(0, 7);
+  if (!joined || !start) return true;
+  return joined >= start;
+};
+
 /**
  * يولّد الاستحقاقات الشهرية لكل مجموعة مُفعَّلة، من شهر التفعيل حتى الشهر الحالي،
  * بدون تكرار نفس الشهر لنفس الطالب.
@@ -53,13 +67,15 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
   const labels = monthsFrom(start);
   if (!labels.length) return 0;
 
-  const { data: students } = await supabase
+  const { data: allStudents } = await supabase
     .from("students")
-    .select("id, final_amount")
+    .select("id, final_amount, created_at")
     .eq("group_id", groupId)
     .eq("status", "active")
     .eq("archived", false);
-  if (!students?.length) return 0;
+  // الطالب المسجّل قبل شهر تفعيل المجموعة لا يستحق دفع
+  const students = (allStudents ?? []).filter((s) => isStudentDueEligible(s.created_at, start));
+  if (!students.length) return 0;
 
   const { data: existing } = await supabase
     .from("dues")
@@ -122,7 +138,7 @@ export async function removeUnpaidDues(studentId: string, groupId?: string | nul
 export async function syncStudentDues(studentId: string) {
   const { data: s } = await supabase
     .from("students")
-    .select("id, status, archived, group_id, final_amount")
+    .select("id, status, archived, group_id, final_amount, created_at")
     .eq("id", studentId)
     .maybeSingle();
   if (!s) return;
@@ -150,6 +166,12 @@ export async function syncStudentDues(studentId: string) {
   if (staleIds.length) await supabase.from("dues").delete().in("id", staleIds);
 
   if (!g?.is_active) return;
+
+  // الطالب المسجّل قبل شهر تفعيل المجموعة لا يستحق دفع
+  if (!isStudentDueEligible(s.created_at, g.activated_at)) {
+    await removeUnpaidDues(studentId, s.group_id);
+    return;
+  }
 
   const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 7));
   if (!labels.length) return;
