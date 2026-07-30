@@ -37,6 +37,7 @@ const emptyGroup = {
   collection_type_id: "",
   fee: "0",
   status_id: "",
+  activated_at: "" as string,
   study_days: [] as string[],
   schedule_time: "04:00 م - 06:00 م",
 };
@@ -88,7 +89,7 @@ function GroupsPage() {
       const system = (lookups?.systems ?? []).find((s: any) => s.id === form.billing_system_id) as any;
       const collection = (lookups?.collections ?? []).find((c: any) => c.id === form.collection_type_id) as any;
       const groupStatus = (lookups?.statuses ?? []).find((s: any) => s.id === form.status_id) as any;
-      const payload = {
+      const payload: any = {
         name: form.name.trim(),
         academic_year_id: form.academic_year_id || null,
         location_id: form.location_id || null,
@@ -108,16 +109,21 @@ function GroupsPage() {
         study_days: form.study_days,
         schedule_time: form.schedule_time,
       };
+      if (form.id && form.activated_at) payload.activated_at = form.activated_at;
       const { error } = form.id
         ? await supabase.from("groups").update(payload).eq("id", form.id)
         : await supabase.from("groups").insert(payload);
       if (error) throw error;
+      if (form.id && form.activated_at) {
+        await generateGroupMonthlyDues(form.id, form.activated_at);
+      }
     },
     onSuccess: () => {
       toast.success("تم حفظ المجموعة");
       setOpen(false);
       setForm(emptyGroup);
       qc.invalidateQueries({ queryKey: ["groups"] });
+      qc.invalidateQueries({ queryKey: ["dues"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -213,6 +219,22 @@ function GroupsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {form.id && (
+                <div className="space-y-1.5">
+                  <Label>شهر التفعيل</Label>
+                  <Select value={form.activated_at || undefined} onValueChange={(v) => setForm({ ...form, activated_at: v })}>
+                    <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() - 11 + i);
+                        const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                        return <SelectItem key={v} value={v}>{monthAr(v)}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>الميعاد</Label>
                 <Input value={form.schedule_time} onChange={(e) => setForm({ ...form, schedule_time: e.target.value })} placeholder="مثال: 04:00 م - 06:00 م" />
@@ -293,6 +315,7 @@ function GroupsPage() {
                       collection_type_id: g.collection_type_id ?? "",
                       fee: String(g.fee),
                       status_id: g.status_id ?? "",
+                      activated_at: g.activated_at ?? "",
                       study_days: g.study_days ?? [],
                       schedule_time: g.schedule_time ?? "",
                     });
