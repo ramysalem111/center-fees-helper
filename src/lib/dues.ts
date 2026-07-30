@@ -38,12 +38,9 @@ export async function generateSessionDues(groupId: string) {
   const { data: group } = await supabase.from("groups").select("id, name").eq("id", groupId).maybeSingle();
   if (!group) throw new Error("المجموعة غير موجودة");
 
-  const { count } = await supabase
-    .from("dues")
-    .select("*", { count: "exact", head: true })
-    .eq("group_id", groupId);
-  const cycle = Math.floor((count ?? 0) / Math.max(1, 1)) + 1;
-  const label = `دورة ${cycle} (8 حصص)`;
+  const { data: previous } = await supabase.from("dues").select("period_label").eq("group_id", groupId);
+  const cycles = new Set((previous ?? []).map((d) => d.period_label));
+  const label = `دورة ${cycles.size + 1} (8 حصص)`;
 
   const { data: students } = await supabase
     .from("students")
