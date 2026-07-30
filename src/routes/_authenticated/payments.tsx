@@ -123,7 +123,9 @@ function PaymentsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const total = dues.reduce((s: number, d: any) => s + Number(d.amount) - Number(d.paid_amount), 0);
+  const total = dues
+    .filter((d: any) => d.status !== "exempt")
+    .reduce((s: number, d: any) => s + Number(d.amount) - Number(d.paid_amount), 0);
 
   const toggleExempt = useMutation({
     mutationFn: async (due: any) => {
