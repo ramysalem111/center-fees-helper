@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BILLING_SYSTEM, BILLING_TYPE, EGP, GROUP_STATUS, WEEK_DAYS } from "@/lib/format";
+import { EGP, WEEK_DAYS } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/groups/")({
   head: () => ({
@@ -32,10 +32,10 @@ const emptyGroup = {
   name: "",
   academic_year_id: "",
   location_id: "",
-  billing_system: "monthly",
-  billing_type: "prepaid",
+  billing_system_id: "",
+  collection_type_id: "",
   fee: "0",
-  status: "open",
+  status_id: "",
   study_days: [] as string[],
   schedule_time: "04:00 م - 06:00 م",
 };
@@ -48,11 +48,20 @@ function GroupsPage() {
   const { data: lookups } = useQuery({
     queryKey: ["group-lookups"],
     queryFn: async () => {
-      const [years, locations] = await Promise.all([
+      const [years, locations, systems, collections, statuses] = await Promise.all([
         supabase.from("academic_years").select("id, name").order("sort_order"),
         supabase.from("locations").select("id, name").order("name"),
+        supabase.from("billing_systems").select("id, name, kind").eq("status", "active").order("sort_order"),
+        supabase.from("collection_types").select("id, name, code").eq("status", "active").order("sort_order"),
+        supabase.from("group_statuses").select("id, name, code").eq("status", "active").order("sort_order"),
       ]);
-      return { years: years.data ?? [], locations: locations.data ?? [] };
+      return {
+        years: years.data ?? [],
+        locations: locations.data ?? [],
+        systems: systems.data ?? [],
+        collections: collections.data ?? [],
+        statuses: statuses.data ?? [],
+      };
     },
   });
 
