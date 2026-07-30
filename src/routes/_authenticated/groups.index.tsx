@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BILLING_SYSTEM, BILLING_TYPE, EGP, GROUP_STATUS, WEEK_DAYS } from "@/lib/format";
 
-export const Route = createFileRoute("/_authenticated/groups")({
+export const Route = createFileRoute("/_authenticated/groups/")({
   head: () => ({
     meta: [
       { title: "المجموعات | نظام إدارة السنتر" },
