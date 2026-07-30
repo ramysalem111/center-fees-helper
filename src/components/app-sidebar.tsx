@@ -8,6 +8,7 @@ import {
   Receipt,
   BarChart3,
   Settings,
+  Bell,
   GraduationCap,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ const items = [
   { title: "المدفوعات", url: "/payments", icon: Wallet },
   { title: "المصروفات", url: "/expenses", icon: Receipt },
   { title: "التقارير", url: "/reports", icon: BarChart3 },
+  { title: "الإشعارات", url: "/notifications", icon: Bell },
   { title: "الإعدادات", url: "/settings", icon: Settings },
 ] as const;
 
