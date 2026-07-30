@@ -61,6 +61,7 @@ export const DUE_STATUS: Record<string, string> = {
   unpaid: "غير مدفوع",
   partial: "مدفوع جزئياً",
   paid: "مدفوع",
+  exempt: "إعفاء من الشهر",
 };
 
 export function waLink(phone: string | null | undefined, text = "") {

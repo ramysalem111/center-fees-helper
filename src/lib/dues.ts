@@ -103,7 +103,12 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
  * (الاستحقاقات المدفوعة أو المدفوعة جزئياً تبقى كسجل مالي).
  */
 export async function removeUnpaidDues(studentId: string, groupId?: string | null) {
-  let q = supabase.from("dues").delete().eq("student_id", studentId).lte("paid_amount", 0);
+  let q = supabase
+    .from("dues")
+    .delete()
+    .eq("student_id", studentId)
+    .lte("paid_amount", 0)
+    .neq("status", "exempt");
   if (groupId) q = q.eq("group_id", groupId);
   const { error } = await q;
   if (error) throw error;
@@ -140,7 +145,8 @@ export async function syncStudentDues(studentId: string) {
     .from("dues")
     .select("id, group_id, paid_amount")
     .eq("student_id", studentId)
-    .lte("paid_amount", 0);
+    .lte("paid_amount", 0)
+    .neq("status", "exempt");
   const staleIds = (stale ?? []).filter((d) => d.group_id && d.group_id !== s.group_id).map((d) => d.id);
   if (staleIds.length) await supabase.from("dues").delete().in("id", staleIds);
 
