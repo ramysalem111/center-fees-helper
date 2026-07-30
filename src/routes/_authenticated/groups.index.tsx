@@ -308,9 +308,9 @@ function GroupsPage() {
                   disabled={activate.isPending}
                   onClick={() => {
                     if (g.is_active) {
-                      activate.mutate({ g, date: g.activated_at ?? todayISO() });
+                      activate.mutate({ g, date: g.activated_at ?? todayISO().slice(0, 7) });
                     } else {
-                      setActivateDate(g.activated_at ?? todayISO());
+                      setActivateMonth(g.activated_at ?? todayISO().slice(0, 7));
                       setActivateTarget(g);
                     }
                   }}
