@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
-import { MessageCircle, Pencil, Plus, Search } from "lucide-react";
+import { MessageCircle, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { syncStudentDues } from "@/lib/dues";
@@ -87,6 +87,8 @@ function StudentsPage() {
   const [groupFilter, setGroupFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<StudentForm>(empty);
+  const [target, setTarget] = useState<any | null>(null);
+  const [pwd, setPwd] = useState("");
   const qc = useQueryClient();
 
   const { data: lookups } = useQuery({
@@ -155,6 +157,26 @@ function StudentsPage() {
       toast.success("تم حفظ بيانات الطالب");
       setOpen(false);
       setForm(empty);
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["dues"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
+      if (password !== "delete") throw new Error("كلمة السر غير صحيحة");
+      await supabase.from("attendance").delete().eq("student_id", id);
+      await supabase.from("payments").delete().eq("student_id", id);
+      await supabase.from("dues").delete().eq("student_id", id);
+      const { error } = await supabase.from("students").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم حذف الطالب");
+      setTarget(null);
+      setPwd("");
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
