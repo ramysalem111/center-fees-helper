@@ -2,15 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, UserPlus } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 
 import { supabase } from "@/integrations/supabase/client";
+import { createStaffUser } from "@/lib/admin-users.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -30,7 +33,45 @@ const TABLES = [
   { key: "governorates", label: "المحافظات" },
   { key: "payment_methods", label: "طرق الدفع" },
   { key: "expense_types", label: "أنواع المصروفات" },
-] as const;
+  {
+    key: "billing_systems",
+    label: "أنظمة الدفع",
+    extra: {
+      column: "kind",
+      label: "طريقة الاحتساب",
+      options: [
+        { value: "monthly", label: "شهري" },
+        { value: "sessions", label: "بعدد الحصص" },
+      ],
+    },
+  },
+  {
+    key: "collection_types",
+    label: "أنواع التحصيل",
+    extra: {
+      column: "code",
+      label: "التوقيت",
+      options: [
+        { value: "prepaid", label: "مقدم" },
+        { value: "postpaid", label: "مؤخر" },
+      ],
+    },
+  },
+  {
+    key: "group_statuses",
+    label: "حالات المجموعة",
+    extra: {
+      column: "code",
+      label: "المعالجة",
+      options: [
+        { value: "listed", label: "قائمة (نشطة)" },
+        { value: "finished", label: "منتهية" },
+      ],
+    },
+  },
+] as { key: string; label: string; extra?: Extra }[];
+
+type Extra = { column: string; label: string; options: { value: string; label: string }[] };
 
 function SettingsPage() {
   return (
@@ -45,14 +86,107 @@ function SettingsPage() {
       <Tabs defaultValue={TABLES[0].key}>
         <TabsList className="flex-wrap">
           {TABLES.map((t) => <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>)}
+          <TabsTrigger value="users">المستخدمون</TabsTrigger>
         </TabsList>
         {TABLES.map((t) => (
           <TabsContent key={t.key} value={t.key}>
-            <LookupCard table={t.key} label={t.label} />
+            <LookupCard table={t.key} label={t.label} extra={t.extra} />
           </TabsContent>
         ))}
+        <TabsContent value="users">
+          <UsersCard />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function UsersCard() {
+  const qc = useQueryClient();
+  const addUser = useServerFn(createStaffUser);
+  const [form, setForm] = useState({ full_name: "", email: "", phone: "", password: "", role: "staff" });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["app-users"],
+    queryFn: async () => {
+      const [profiles, roles] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, phone, created_at").order("created_at"),
+        supabase.from("user_roles").select("user_id, role"),
+      ]);
+      const roleMap = new Map((roles.data ?? []).map((r) => [r.user_id, r.role]));
+      return (profiles.data ?? []).map((p) => ({ ...p, role: roleMap.get(p.id) ?? "staff" }));
+    },
+  });
+
+  const create = useMutation({
+    mutationFn: async () =>
+      addUser({
+        data: {
+          full_name: form.full_name,
+          email: form.email,
+          phone: form.phone,
+          password: form.password,
+          role: form.role as "admin" | "staff",
+        },
+      }),
+    onSuccess: () => {
+      toast.success("تم إنشاء الحساب");
+      setForm({ full_name: "", email: "", phone: "", password: "", role: "staff" });
+      qc.invalidateQueries({ queryKey: ["app-users"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "تعذّر إنشاء الحساب"),
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-base">إنشاء حساب مستخدم جديد</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>الاسم</Label>
+            <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>البريد الإلكتروني</Label>
+            <Input dir="ltr" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>رقم الهاتف</Label>
+            <Input dir="ltr" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>كلمة المرور</Label>
+            <Input dir="ltr" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>الصلاحية</Label>
+            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="staff">موظف</SelectItem>
+                <SelectItem value="admin">مدير</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button className="gap-2" disabled={create.isPending} onClick={() => create.mutate()}>
+              <UserPlus className="size-4" /> إنشاء الحساب
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">المستخدمون الحاليون</p>
+          {users.map((u: any) => (
+            <div key={u.id} className="flex items-center justify-between rounded-lg border p-2 text-sm">
+              <span className="font-medium">{u.full_name || "بدون اسم"}</span>
+              <span className="text-muted-foreground" dir="ltr">{u.phone ?? ""}</span>
+              <Badge variant={u.role === "admin" ? "default" : "secondary"}>{u.role === "admin" ? "مدير" : "موظف"}</Badge>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -98,9 +232,10 @@ function CenterCard() {
   );
 }
 
-function LookupCard({ table, label }: { table: string; label: string }) {
+function LookupCard({ table, label, extra }: { table: string; label: string; extra?: Extra }) {
   const qc = useQueryClient();
   const [value, setValue] = useState("");
+  const [extraValue, setExtraValue] = useState(extra?.options[0].value ?? "");
 
   const { data: rows = [] } = useQuery({
     queryKey: ["lookup", table],
@@ -114,7 +249,9 @@ function LookupCard({ table, label }: { table: string; label: string }) {
   const add = useMutation({
     mutationFn: async () => {
       if (value.trim().length < 2) throw new Error("أدخل اسماً صحيحاً");
-      const { error } = await supabase.from(table as never).insert({ name: value.trim() } as never);
+      const payload: Record<string, unknown> = { name: value.trim() };
+      if (extra) payload[extra.column] = extraValue;
+      const { error } = await supabase.from(table as never).insert(payload as never);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -142,8 +279,16 @@ function LookupCard({ table, label }: { table: string; label: string }) {
     <Card>
       <CardHeader className="pb-2"><CardTitle className="text-base">{label}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input placeholder={`إضافة إلى ${label}`} value={value} onChange={(e) => setValue(e.target.value)} />
+          {extra && (
+            <Select value={extraValue} onValueChange={setExtraValue}>
+              <SelectTrigger className="w-44"><SelectValue placeholder={extra.label} /></SelectTrigger>
+              <SelectContent>
+                {extra.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <Button className="gap-1 shrink-0" onClick={() => add.mutate()} disabled={add.isPending}>
             <Plus className="size-4" /> إضافة
           </Button>
