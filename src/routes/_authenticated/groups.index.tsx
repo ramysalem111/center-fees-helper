@@ -219,6 +219,22 @@ function GroupsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {form.id && (
+                <div className="space-y-1.5">
+                  <Label>شهر التفعيل</Label>
+                  <Select value={form.activated_at || undefined} onValueChange={(v) => setForm({ ...form, activated_at: v })}>
+                    <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() - 11 + i);
+                        const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                        return <SelectItem key={v} value={v}>{monthAr(v)}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>الميعاد</Label>
                 <Input value={form.schedule_time} onChange={(e) => setForm({ ...form, schedule_time: e.target.value })} placeholder="مثال: 04:00 م - 06:00 م" />
