@@ -329,16 +329,26 @@ function GroupsPage() {
             <DialogTitle>تفعيل المجموعة {activateTarget?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5">
-            <Label>تاريخ التفعيل</Label>
-            <Input type="date" value={activateDate} onChange={(e) => setActivateDate(e.target.value)} />
+            <Label>شهر التفعيل</Label>
+            <Select value={activateMonth} onValueChange={setActivateMonth}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 24 }, (_, i) => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - 11 + i);
+                  const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                  return <SelectItem key={v} value={v}>{monthAr(v)}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-muted-foreground">
-              سيتم توليد استحقاق شهري لكل طلاب المجموعة بدءاً من هذا التاريخ.
+              سيتم توليد استحقاق شهري لكل طلاب المجموعة بدءاً من هذا الشهر.
             </p>
           </div>
           <DialogFooter>
             <Button
-              disabled={activate.isPending || !activateDate}
-              onClick={() => activate.mutate({ g: activateTarget, date: activateDate })}
+              disabled={activate.isPending || !activateMonth}
+              onClick={() => activate.mutate({ g: activateTarget, date: activateMonth })}
             >
               تفعيل وتوليد الاستحقاقات
             </Button>
