@@ -146,7 +146,7 @@ export async function syncStudentDues(studentId: string) {
 
   if (!g?.is_active || g.billing_system !== "monthly") return;
 
-  const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 10));
+  const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 7));
   if (!labels.length) return;
 
   const { data: existing } = await supabase
