@@ -1,25 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { CalendarPlus, Check, Clock, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ATTENDANCE_STATUS, BILLING_SYSTEM, DUE_STATUS, EGP, dateAr, todayISO } from "@/lib/format";
-import { monthAr } from "@/lib/dues";
+import { BILLING_SYSTEM, DUE_STATUS, EGP, dateAr, todayISO } from "@/lib/format";
+import { monthAr, monthRange } from "@/lib/dues";
 
 export const Route = createFileRoute("/_authenticated/groups/$groupId")({
   head: () => ({
     meta: [
       { title: "شاشة المجموعة | نظام إدارة السنتر" },
-      { name: "description", content: "تسجيل الحضور والغياب ومتابعة مستحقات طلاب المجموعة." },
+      { name: "description", content: "متابعة اشتراكات طلاب المجموعة وحالة الدفع الشهرية." },
       { property: "og:title", content: "شاشة المجموعة | نظام إدارة السنتر" },
-      { property: "og:description", content: "حضور وغياب المجموعة وحالة الدفع لكل طالب." },
+      { property: "og:description", content: "حالة الدفع الشهرية لكل طالب في المجموعة." },
     ],
   }),
   component: GroupScreen,
@@ -27,8 +24,7 @@ export const Route = createFileRoute("/_authenticated/groups/$groupId")({
 
 function GroupScreen() {
   const { groupId } = Route.useParams();
-  const qc = useQueryClient();
-  const [sessionId, setSessionId] = useState<string>("");
+  const [month, setMonth] = useState<string>(todayISO().slice(0, 7));
 
   const { data: group } = useQuery({
     queryKey: ["group", groupId],
@@ -39,20 +35,6 @@ function GroupScreen() {
         .eq("id", groupId)
         .maybeSingle();
       return data;
-    },
-  });
-
-  const { data: sessions = [] } = useQuery({
-    queryKey: ["sessions", groupId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("class_sessions")
-        .select("*")
-        .eq("group_id", groupId)
-        .order("session_date", { ascending: false });
-      const list = data ?? [];
-      if (list.length && !sessionId) setSessionId(list[0].id);
-      return list;
     },
   });
 
@@ -69,23 +51,14 @@ function GroupScreen() {
     },
   });
 
-  const { data: attendance = {} } = useQuery({
-    queryKey: ["attendance", sessionId],
-    enabled: !!sessionId,
-    queryFn: async () => {
-      const { data } = await supabase.from("attendance").select("student_id, status").eq("session_id", sessionId);
-      return Object.fromEntries((data ?? []).map((a) => [a.student_id, a.status]));
-    },
-  });
-
   const { data: dues = [] } = useQuery({
-    queryKey: ["group-dues", groupId],
+    queryKey: ["group-dues", groupId, month],
     queryFn: async () => {
       const { data } = await supabase
         .from("dues")
         .select("*")
         .eq("group_id", groupId)
-        .order("due_date", { ascending: false });
+        .eq("period_label", month);
       return data ?? [];
     },
   });
@@ -106,38 +79,19 @@ function GroupScreen() {
     },
   });
 
-  const addSession = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase
-        .from("class_sessions")
-        .insert({ group_id: groupId, session_date: todayISO(), session_number: sessions.length + 1 })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data.id;
-    },
-    onSuccess: (id) => {
-      setSessionId(id);
-      toast.success("تم إنشاء حصة اليوم");
-      qc.invalidateQueries({ queryKey: ["sessions", groupId] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const mark = useMutation({
-    mutationFn: async ({ studentId, status }: { studentId: string; status: "present" | "absent" | "makeup" }) => {
-      if (!sessionId) throw new Error("أنشئ حصة أولاً");
-      const { error } = await supabase
-        .from("attendance")
-        .upsert({ session_id: sessionId, student_id: studentId, status }, { onConflict: "session_id,student_id" });
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", sessionId] }),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const dueByStudent = new Map<string, any>();
   for (const d of dues as any[]) if (!dueByStudent.has(d.student_id)) dueByStudent.set(d.student_id, d);
+
+  const monthOptions = (() => {
+    const out: string[] = [];
+    const now = new Date();
+    for (let i = -1; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    }
+    return out;
+  })();
+  const range = monthRange(month);
 
   return (
     <div className="space-y-4">
@@ -152,25 +106,21 @@ function GroupScreen() {
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-2 p-3">
-          <Select value={sessionId || undefined} onValueChange={setSessionId}>
-            <SelectTrigger className="w-56"><SelectValue placeholder="اختر الحصة" /></SelectTrigger>
+          <Select value={month} onValueChange={setMonth}>
+            <SelectTrigger className="w-56"><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
             <SelectContent>
-              {sessions.map((s: any) => (
-                <SelectItem key={s.id} value={s.id}>
-                  حصة {s.session_number} — {dateAr(s.session_date)}
-                </SelectItem>
-              ))}
+              {monthOptions.map((m) => <SelectItem key={m} value={m}>{monthAr(m)}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button className="gap-2" onClick={() => addSession.mutate()} disabled={addSession.isPending}>
-            <CalendarPlus className="size-4" /> حصة اليوم
-          </Button>
+          <span className="text-xs text-muted-foreground">
+            الاشتراك صالح من {dateAr(range.start)} حتى {dateAr(range.end)}
+          </span>
           <Badge variant="secondary" className="ms-auto">{students.length} طالب</Badge>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">الحضور والغياب</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-base">حالة الدفع — {monthAr(month)}</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
@@ -179,7 +129,7 @@ function GroupScreen() {
                 <TableHead>الاسم</TableHead>
                 <TableHead>الاشتراك</TableHead>
                 <TableHead>حالة الدفع</TableHead>
-                <TableHead className="text-center">التسجيل</TableHead>
+                <TableHead>آخر دفع</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -187,7 +137,6 @@ function GroupScreen() {
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">لا يوجد طلاب في هذه المجموعة</TableCell></TableRow>
               )}
               {students.map((s: any) => {
-                const st = (attendance as Record<string, string>)[s.id];
                 const due = dueByStudent.get(s.id);
                 return (
                   <TableRow key={s.id}>
@@ -196,47 +145,20 @@ function GroupScreen() {
                     <TableCell>{EGP(s.final_amount)}</TableCell>
                     <TableCell>
                       {due ? (
-                        <div className="flex flex-col gap-1">
-                          <Badge className="w-fit" variant={due.status === "paid" ? "default" : "destructive"}>
-                            {DUE_STATUS[due.status]} — {due.period_label}
-                          </Badge>
-                          {due.status !== "paid" && (
-                            <span className="text-xs text-muted-foreground">
-                              آخر دفع: {(lastPaid as Record<string, string>)[s.id] ? dateAr((lastPaid as Record<string, string>)[s.id]) : "لا يوجد"}
-                            </span>
-                          )}
-                        </div>
+                        <Badge
+                          className="w-fit"
+                          variant={due.status === "paid" ? "default" : due.status === "exempt" ? "secondary" : "destructive"}
+                        >
+                          {DUE_STATUS[due.status]}
+                        </Badge>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">لا يوجد استحقاق لهذا الشهر</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex justify-center gap-1">
-                        <Button
-                          size="icon"
-                          variant={st === "present" ? "default" : "outline"}
-                          onClick={() => mark.mutate({ studentId: s.id, status: "present" })}
-                          aria-label={ATTENDANCE_STATUS.present}
-                        >
-                          <Check className="size-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant={st === "absent" ? "destructive" : "outline"}
-                          onClick={() => mark.mutate({ studentId: s.id, status: "absent" })}
-                          aria-label={ATTENDANCE_STATUS.absent}
-                        >
-                          <X className="size-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant={st === "makeup" ? "secondary" : "outline"}
-                          onClick={() => mark.mutate({ studentId: s.id, status: "makeup" })}
-                          aria-label={ATTENDANCE_STATUS.makeup}
-                        >
-                          <Clock className="size-4" />
-                        </Button>
-                      </div>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(lastPaid as Record<string, string>)[s.id]
+                        ? dateAr((lastPaid as Record<string, string>)[s.id])
+                        : "لا يوجد"}
                     </TableCell>
                   </TableRow>
                 );
