@@ -11,7 +11,10 @@ import {
   Settings,
   Bell,
   GraduationCap,
+  PiggyBank,
 } from "lucide-react";
+
+import { usePermissions } from "@/lib/permissions";
 
 import {
   Sidebar,
@@ -26,20 +29,22 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "لوحة التحكم", url: "/dashboard", icon: LayoutDashboard },
-  { title: "الطلاب", url: "/students", icon: Users },
-  { title: "المجموعات", url: "/groups", icon: Layers },
-  { title: "الحضور", url: "/attendance", icon: CalendarCheck },
-  { title: "تسجيل الحضور", url: "/attendance-record", icon: CalendarPlus },
-  { title: "المدفوعات", url: "/payments", icon: Wallet },
-  { title: "المصروفات", url: "/expenses", icon: Receipt },
-  { title: "التقارير", url: "/reports", icon: BarChart3 },
-  { title: "الإشعارات", url: "/notifications", icon: Bell },
-  { title: "الإعدادات", url: "/settings", icon: Settings },
+  { key: "dashboard", title: "لوحة التحكم", url: "/dashboard", icon: LayoutDashboard },
+  { key: "students", title: "الطلاب", url: "/students", icon: Users },
+  { key: "groups", title: "المجموعات", url: "/groups", icon: Layers },
+  { key: "attendance", title: "الحضور", url: "/attendance", icon: CalendarCheck },
+  { key: "attendance-record", title: "تسجيل الحضور", url: "/attendance-record", icon: CalendarPlus },
+  { key: "payments", title: "المدفوعات", url: "/payments", icon: Wallet },
+  { key: "other-income", title: "إيرادات أخرى", url: "/other-income", icon: PiggyBank },
+  { key: "expenses", title: "المصروفات", url: "/expenses", icon: Receipt },
+  { key: "reports", title: "التقارير", url: "/reports", icon: BarChart3 },
+  { key: "notifications", title: "الإشعارات", url: "/notifications", icon: Bell },
+  { key: "settings", title: "الإعدادات", url: "/settings", icon: Settings },
 ] as const;
 
 export function AppSidebar({ centerName }: { centerName?: string }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const { can } = usePermissions();
 
   return (
     <Sidebar collapsible="icon" side="right">
@@ -56,7 +61,7 @@ export function AppSidebar({ centerName }: { centerName?: string }) {
           <SidebarGroupLabel>القائمة الرئيسية</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {items.filter((item) => can(item.key)).map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={path.startsWith(item.url)} tooltip={item.title}>
                     <Link to={item.url} className="flex items-center gap-2">
