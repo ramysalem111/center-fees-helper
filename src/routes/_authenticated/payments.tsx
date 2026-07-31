@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BanIcon, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ensureDueForMonth, generateMonthlyDues, monthAr } from "@/lib/dues";
+import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths } from "@/lib/dues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -328,13 +328,15 @@ function PaymentsPage() {
               >
                 <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
                 <SelectContent>
-                  {(payStudentDues as any[]).map((d) => (
-                    <SelectItem key={d.id} value={d.period_label}>
-                      {d.status === "paid"
-                        ? `${monthAr(d.period_label)} — مدفوع`
-                        : `${monthAr(d.period_label)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`}
-                    </SelectItem>
-                  ))}
+                  {nearbyMonths(payDue?.period_label).map((m) => {
+                    const d = (payStudentDues as any[]).find((x) => x.period_label === m);
+                    const label = d
+                      ? d.status === "paid"
+                        ? `${monthAr(m)} — مدفوع`
+                        : `${monthAr(m)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`
+                      : `${monthAr(m)} — بدون استحقاق`;
+                    return <SelectItem key={m} value={m}>{label}</SelectItem>;
+                  })}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
@@ -536,15 +538,19 @@ function PaymentsLog({ methods }: { methods: any[] }) {
               <Select value={form.period || undefined} onValueChange={(v) => setForm({ ...form, period: v })}>
                 <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
                 <SelectContent>
-                  {(editStudentDues as any[]).map((d: any) => (
-                    <SelectItem key={d.id} value={d.period_label}>
-                      {monthAr(d.period_label)}
-                      {Number(d.paid_amount ?? 0) >= Number(d.amount ?? 0) ? " — مدفوع" : ` — متبقي ${Number(d.amount) - Number(d.paid_amount)}`}
-                    </SelectItem>
-                  ))}
-                  {!(editStudentDues as any[]).some((d: any) => d.period_label === form.period) && form.period && (
-                    <SelectItem value={form.period}>{monthAr(form.period)}</SelectItem>
-                  )}
+                  {Array.from(
+                    new Set([...nearbyMonths(edit?.dues?.period_label), ...(form.period ? [form.period] : [])]),
+                  )
+                    .sort()
+                    .map((m) => {
+                      const d = (editStudentDues as any[]).find((x: any) => x.period_label === m);
+                      const label = d
+                        ? Number(d.paid_amount ?? 0) >= Number(d.amount ?? 0)
+                          ? `${monthAr(m)} — مدفوع`
+                          : `${monthAr(m)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`
+                        : `${monthAr(m)} — بدون استحقاق`;
+                      return <SelectItem key={m} value={m}>{label}</SelectItem>;
+                    })}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">تغيير الشهر ينقل الدفعة للاستحقاق الصحيح ويحدث حالة الشهرين تلقائياً</p>
@@ -656,15 +662,7 @@ function NewPaymentForm({
     },
   });
 
-  const monthOptions = (() => {
-    const out: string[] = [];
-    const now = new Date();
-    for (let i = -1; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-    }
-    return out;
-  })();
+  const monthOptions = nearbyMonths();
 
   const selectedStudent = students.find((s: any) => s.id === studentId) as any;
   const selectedDue = studentDues.find((d: any) => d.period_label === period) as any;
