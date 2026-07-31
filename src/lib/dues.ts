@@ -27,6 +27,21 @@ export const monthAr = (label: string) => {
 /** شهر (YYYY-MM) من تاريخ */
 export const monthOf = (date?: string | null) => (date ? String(date).slice(0, 7) : "");
 
+/** الشهر السابق والحالي والتالي فقط (YYYY-MM) */
+export function nearbyMonths(base?: string): string[] {
+  const now = new Date();
+  let y = now.getFullYear();
+  let m = now.getMonth();
+  if (base && /^\d{4}-\d{2}$/.test(base)) {
+    const [by, bm] = base.split("-").map(Number);
+    y = by; m = bm - 1;
+  }
+  return [-1, 0, 1].map((off) => {
+    const d = new Date(y, m + off, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+}
+
 /**
  * الطالب المسجّل في المجموعة قبل شهر تفعيل المجموعة لا يستحق دفع.
  * ترجع true لو الطالب مستحق (تسجيله في شهر التفعيل أو بعده).
