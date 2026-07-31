@@ -70,11 +70,13 @@ function GroupScreen() {
       if (!ids.length) return {};
       const { data } = await supabase
         .from("payments")
-        .select("student_id, paid_at")
+        .select("student_id, paid_at, dues(period_label)")
         .in("student_id", ids)
         .order("paid_at", { ascending: false });
-      const map: Record<string, string> = {};
-      for (const p of data ?? []) if (!map[p.student_id]) map[p.student_id] = p.paid_at;
+      const map: Record<string, { paid_at: string; period?: string | null }> = {};
+      for (const p of (data ?? []) as any[]) {
+        if (!map[p.student_id]) map[p.student_id] = { paid_at: p.paid_at, period: p.dues?.period_label ?? null };
+      }
       return map;
     },
   });
@@ -113,7 +115,7 @@ function GroupScreen() {
             </SelectContent>
           </Select>
           <span className="text-xs text-muted-foreground">
-            الاشتراك صالح من {dateAr(range.start)} حتى {dateAr(range.end)}
+            الاشتراك صالح من {dateAr(range.start)} حتى {dateAr(range.end)} — تاريخ الدفع استرشادي، والمحاسبة على شهر الاستحقاق
           </span>
           <Badge variant="secondary" className="ms-auto">{students.length} طالب</Badge>
         </CardContent>
@@ -155,10 +157,18 @@ function GroupScreen() {
                         <span className="text-muted-foreground">لا يوجد استحقاق لهذا الشهر</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {(lastPaid as Record<string, string>)[s.id]
-                        ? dateAr((lastPaid as Record<string, string>)[s.id])
-                        : "لا يوجد"}
+                    <TableCell className="text-xs text-muted-foreground">
+                      {(() => {
+                        const last = (lastPaid as Record<string, { paid_at: string; period?: string | null }>)[s.id];
+                        if (!last) return "لا يوجد";
+                        return (
+                          <>
+                            {last.period ? `استحقاق ${monthAr(last.period)}` : "بدون استحقاق"}
+                            <br />
+                            <span className="opacity-70">بتاريخ {dateAr(last.paid_at)}</span>
+                          </>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
                 );
