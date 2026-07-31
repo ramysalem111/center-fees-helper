@@ -70,7 +70,7 @@ function Dashboard() {
         supabase.from("payments").select("amount").gte("paid_at", monthStart),
         supabase.from("expenses").select("amount").gte("expense_date", monthStart),
         supabase.from("students").select("id, code, full_name, created_at").order("created_at", { ascending: false }).limit(5),
-        supabase.from("payments").select("id, amount, paid_at, students(full_name)").order("created_at", { ascending: false }).limit(5),
+        supabase.from("payments").select("id, amount, paid_at, students(full_name), dues(period_label)").order("created_at", { ascending: false }).limit(5),
       ]);
 
       const sessionIds = (sessionsToday.data ?? []).map((s: { id: string }) => s.id);
@@ -176,7 +176,9 @@ function Dashboard() {
             {data.recentPayments.map((p: any) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg border p-2 text-sm">
                 <span className="truncate font-medium">{p.students?.full_name ?? "—"}</span>
-                <span className="text-xs text-muted-foreground">{dateAr(p.paid_at)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {p.dues?.period_label ? `استحقاق ${monthAr(p.dues.period_label)}` : "بدون استحقاق"} • {dateAr(p.paid_at)}
+                </span>
                 <Badge className="bg-success text-success-foreground">{EGP(p.amount)}</Badge>
               </div>
             ))}
