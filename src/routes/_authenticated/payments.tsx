@@ -371,7 +371,20 @@ function PaymentsLog({ methods }: { methods: any[] }) {
   const qc = useQueryClient();
   const [edit, setEdit] = useState<any | null>(null);
   const [del, setDel] = useState<any | null>(null);
-  const [form, setForm] = useState({ amount: "", paid_at: "", methodId: "", notes: "" });
+  const [form, setForm] = useState({ amount: "", paid_at: "", methodId: "", notes: "", period: "" });
+
+  const { data: editStudentDues = [] } = useQuery({
+    queryKey: ["edit-student-dues", edit?.student_id],
+    enabled: !!edit?.student_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dues")
+        .select("id, period_label, amount, paid_amount")
+        .eq("student_id", edit.student_id)
+        .order("period_label");
+      return data ?? [];
+    },
+  });
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["payments-log"],
@@ -397,6 +410,12 @@ function PaymentsLog({ methods }: { methods: any[] }) {
     mutationFn: async () => {
       const value = Number(form.amount);
       if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+      const oldDueId: string | null = edit.due_id ?? null;
+      let dueId = oldDueId;
+      if (form.period) {
+        const target: any = await ensureDueForMonth(edit.student_id, edit.group_id ?? null, form.period);
+        dueId = target.id;
+      }
       const { error } = await supabase
         .from("payments")
         .update({
@@ -404,9 +423,13 @@ function PaymentsLog({ methods }: { methods: any[] }) {
           paid_at: form.paid_at,
           payment_method_id: form.methodId || null,
           notes: form.notes.trim() || null,
+          due_id: dueId,
         })
         .eq("id", edit.id);
       if (error) throw error;
+      // إعادة حساب حالة الاستحقاق القديم والجديد
+      const ids = [oldDueId, dueId].filter((x, i, a) => x && a.indexOf(x) === i) as string[];
+      for (const id of ids) await recomputeDue(id);
     },
     onSuccess: () => {
       toast.success("تم تعديل الدفعة");
@@ -420,6 +443,7 @@ function PaymentsLog({ methods }: { methods: any[] }) {
     mutationFn: async () => {
       const { error } = await supabase.from("payments").delete().eq("id", del.id);
       if (error) throw error;
+      if (del.due_id) await recomputeDue(del.due_id);
     },
     onSuccess: () => {
       toast.success("تم حذف الدفعة");
