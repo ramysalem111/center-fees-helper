@@ -1,4 +1,4 @@
-import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LogOut, Moon, Sun } from "lucide-react";
@@ -10,6 +10,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { GlobalSearch } from "@/components/global-search";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SECTIONS, usePermissions } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -21,6 +22,11 @@ function AppLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { dark, toggle } = useTheme();
+  const path = useRouterState({ select: (r) => r.location.pathname });
+  const { loading: permsLoading, allowed } = usePermissions();
+
+  const section = SECTIONS.find((s) => path.startsWith(s.url));
+  const denied = !!session && !permsLoading && !!section && !allowed.includes(section.key);
 
   useEffect(() => {
     if (!loading && !session) navigate({ to: "/auth", replace: true });
@@ -64,7 +70,16 @@ function AppLayout() {
             </div>
           </header>
           <main className="min-w-0 flex-1 p-4 md:p-6">
-            <Outlet />
+            {denied ? (
+              <div className="grid min-h-[50vh] place-items-center text-center">
+                <div className="space-y-2">
+                  <p className="text-lg font-bold">لا تملك صلاحية الوصول لهذه الشاشة</p>
+                  <p className="text-sm text-muted-foreground">تواصل مع المدير لمنحك الصلاحية</p>
+                </div>
+              </div>
+            ) : (
+              <Outlet />
+            )}
           </main>
         </div>
       </div>
