@@ -327,6 +327,15 @@ function StudentsPage() {
               {(lookups?.groups ?? []).map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={discountFilter} onValueChange={setDiscountFilter}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الحالات المالية</SelectItem>
+              <SelectItem value="discount">عليهم خصم</SelectItem>
+              <SelectItem value="exemption">عليهم إعفاء</SelectItem>
+              <SelectItem value="either">خصم أو إعفاء</SelectItem>
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
 
