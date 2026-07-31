@@ -472,6 +472,30 @@ export type Database = {
           },
         ]
       }
+      income_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           created_at: string
@@ -495,6 +519,57 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      other_incomes: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          income_date: string
+          income_type_id: string | null
+          notes: string | null
+          payment_method_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          income_date?: string
+          income_type_id?: string | null
+          notes?: string | null
+          payment_method_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          income_date?: string
+          income_type_id?: string | null
+          notes?: string | null
+          payment_method_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "other_incomes_income_type_id_fkey"
+            columns: ["income_type_id"]
+            isOneToOne: false
+            referencedRelation: "income_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "other_incomes_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_methods: {
         Row: {
@@ -683,6 +758,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          section: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          section: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          section?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
