@@ -131,6 +131,7 @@ function PaymentsPage() {
       qc.invalidateQueries({ queryKey: ["dues"] });
       qc.invalidateQueries({ queryKey: ["quick-pay-dues"] });
       qc.invalidateQueries({ queryKey: ["last-payments"] });
+      qc.invalidateQueries({ queryKey: ["payments-log"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -389,6 +390,7 @@ function PaymentsLog({ methods }: { methods: any[] }) {
     qc.invalidateQueries({ queryKey: ["payments-log"] });
     qc.invalidateQueries({ queryKey: ["dues"] });
     qc.invalidateQueries({ queryKey: ["last-payments"] });
+      qc.invalidateQueries({ queryKey: ["payments-log"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
   };
 
@@ -672,6 +674,7 @@ function NewPaymentForm({
       toast.success(fullExempt ? "تم إعفاء الطالب من هذا الشهر" : "تم تسجيل الدفعة");
       qc.invalidateQueries({ queryKey: ["dues"] });
       qc.invalidateQueries({ queryKey: ["last-payments"] });
+      qc.invalidateQueries({ queryKey: ["payments-log"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       onDone();
     },
