@@ -585,6 +585,9 @@ function NewPaymentForm({
         <div className="space-y-1.5">
           <Label>تاريخ الدفع</Label>
           <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+          <p className="text-xs text-muted-foreground">
+            تاريخ استرشادي فقط — الحساب يعتمد على شهر الاستحقاق (يمكن الدفع مقدماً أو متأخراً)
+          </p>
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label>طريقة الدفع</Label>
