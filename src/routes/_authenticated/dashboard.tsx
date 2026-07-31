@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EGP, dateAr, num, todayISO } from "@/lib/format";
+import { monthAr } from "@/lib/dues";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
