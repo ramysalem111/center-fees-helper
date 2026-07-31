@@ -85,6 +85,7 @@ function StudentsPage() {
   const [term, setTerm] = useState(q);
   const [statusFilter, setStatusFilter] = useState("all");
   const [groupFilter, setGroupFilter] = useState("all");
+  const [discountFilter, setDiscountFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<StudentForm>(empty);
   const [target, setTarget] = useState<any | null>(null);
