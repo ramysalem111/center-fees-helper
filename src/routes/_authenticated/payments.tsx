@@ -367,11 +367,34 @@ function PaymentsPage() {
 }
 
 /** سجل الدفعات مع تعديل/حذف أي دفعة خاطئة */
+async function recomputeDue(dueId: string) {
+  const { data: due } = await supabase.from("dues").select("id, amount, status").eq("id", dueId).maybeSingle();
+  if (!due) return;
+  const { data: rows } = await supabase.from("payments").select("amount").eq("due_id", dueId);
+  const paid = (rows ?? []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0);
+  const status =
+    due.status === "exempt" ? "exempt" : paid <= 0 ? "unpaid" : paid >= Number(due.amount ?? 0) ? "paid" : "partial";
+  await supabase.from("dues").update({ paid_amount: paid, status: status as any }).eq("id", dueId);
+}
+
 function PaymentsLog({ methods }: { methods: any[] }) {
   const qc = useQueryClient();
   const [edit, setEdit] = useState<any | null>(null);
   const [del, setDel] = useState<any | null>(null);
-  const [form, setForm] = useState({ amount: "", paid_at: "", methodId: "", notes: "" });
+  const [form, setForm] = useState({ amount: "", paid_at: "", methodId: "", notes: "", period: "" });
+
+  const { data: editStudentDues = [] } = useQuery({
+    queryKey: ["edit-student-dues", edit?.student_id],
+    enabled: !!edit?.student_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dues")
+        .select("id, period_label, amount, paid_amount")
+        .eq("student_id", edit.student_id)
+        .order("period_label");
+      return data ?? [];
+    },
+  });
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["payments-log"],
@@ -397,6 +420,12 @@ function PaymentsLog({ methods }: { methods: any[] }) {
     mutationFn: async () => {
       const value = Number(form.amount);
       if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+      const oldDueId: string | null = edit.due_id ?? null;
+      let dueId = oldDueId;
+      if (form.period) {
+        const target: any = await ensureDueForMonth(edit.student_id, edit.group_id ?? null, form.period);
+        dueId = target.id;
+      }
       const { error } = await supabase
         .from("payments")
         .update({
@@ -404,9 +433,13 @@ function PaymentsLog({ methods }: { methods: any[] }) {
           paid_at: form.paid_at,
           payment_method_id: form.methodId || null,
           notes: form.notes.trim() || null,
+          due_id: dueId,
         })
         .eq("id", edit.id);
       if (error) throw error;
+      // إعادة حساب حالة الاستحقاق القديم والجديد
+      const ids = [oldDueId, dueId].filter((x, i, a) => x && a.indexOf(x) === i) as string[];
+      for (const id of ids) await recomputeDue(id);
     },
     onSuccess: () => {
       toast.success("تم تعديل الدفعة");
@@ -420,6 +453,7 @@ function PaymentsLog({ methods }: { methods: any[] }) {
     mutationFn: async () => {
       const { error } = await supabase.from("payments").delete().eq("id", del.id);
       if (error) throw error;
+      if (del.due_id) await recomputeDue(del.due_id);
     },
     onSuccess: () => {
       toast.success("تم حذف الدفعة");
@@ -475,6 +509,7 @@ function PaymentsLog({ methods }: { methods: any[] }) {
                             paid_at: p.paid_at ?? todayISO(),
                             methodId: p.payment_method_id ?? "",
                             notes: p.notes ?? "",
+                            period: p.dues?.period_label ?? "",
                           });
                         }}
                       >
@@ -496,9 +531,24 @@ function PaymentsLog({ methods }: { methods: any[] }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>تعديل دفعة — {edit?.students?.full_name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="rounded-lg bg-muted p-2 text-xs">
-              شهر الاستحقاق: {edit?.dues?.period_label ? monthAr(edit.dues.period_label) : "بدون استحقاق"} — يتم تحديث حالة الشهر تلقائياً بعد التعديل
-            </p>
+            <div className="space-y-1.5">
+              <Label>شهر الاستحقاق</Label>
+              <Select value={form.period || undefined} onValueChange={(v) => setForm({ ...form, period: v })}>
+                <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
+                <SelectContent>
+                  {(editStudentDues as any[]).map((d: any) => (
+                    <SelectItem key={d.id} value={d.period_label}>
+                      {monthAr(d.period_label)}
+                      {Number(d.paid_amount ?? 0) >= Number(d.amount ?? 0) ? " — مدفوع" : ` — متبقي ${Number(d.amount) - Number(d.paid_amount)}`}
+                    </SelectItem>
+                  ))}
+                  {!(editStudentDues as any[]).some((d: any) => d.period_label === form.period) && form.period && (
+                    <SelectItem value={form.period}>{monthAr(form.period)}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">تغيير الشهر ينقل الدفعة للاستحقاق الصحيح ويحدث حالة الشهرين تلقائياً</p>
+            </div>
             <div className="space-y-1.5">
               <Label>المبلغ</Label>
               <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
