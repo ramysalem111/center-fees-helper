@@ -367,6 +367,16 @@ function PaymentsPage() {
 }
 
 /** سجل الدفعات مع تعديل/حذف أي دفعة خاطئة */
+async function recomputeDue(dueId: string) {
+  const { data: due } = await supabase.from("dues").select("id, amount, status").eq("id", dueId).maybeSingle();
+  if (!due) return;
+  const { data: rows } = await supabase.from("payments").select("amount").eq("due_id", dueId);
+  const paid = (rows ?? []).reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0);
+  const status =
+    due.status === "exempt" ? "exempt" : paid <= 0 ? "unpaid" : paid >= Number(due.amount ?? 0) ? "paid" : "partial";
+  await supabase.from("dues").update({ paid_amount: paid, status: status as any }).eq("id", dueId);
+}
+
 function PaymentsLog({ methods }: { methods: any[] }) {
   const qc = useQueryClient();
   const [edit, setEdit] = useState<any | null>(null);
