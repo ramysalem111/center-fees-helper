@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DEFAULT_STAFF_SECTIONS, SECTIONS } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -33,6 +35,7 @@ const TABLES = [
   { key: "governorates", label: "المحافظات" },
   { key: "payment_methods", label: "طرق الدفع" },
   { key: "expense_types", label: "أنواع المصروفات" },
+  { key: "income_types", label: "أنواع الإيرادات الأخرى" },
   {
     key: "billing_systems",
     label: "أنظمة الدفع",
