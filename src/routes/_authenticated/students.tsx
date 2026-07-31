@@ -105,7 +105,7 @@ function StudentsPage() {
   });
 
   const { data: students = [], isLoading } = useQuery({
-    queryKey: ["students", term, statusFilter, groupFilter],
+    queryKey: ["students", term, statusFilter, groupFilter, discountFilter],
     queryFn: async () => {
       let query = supabase
         .from("students")
@@ -115,6 +115,9 @@ function StudentsPage() {
         .limit(500);
       if (statusFilter !== "all") query = query.eq("status", statusFilter as never);
       if (groupFilter !== "all") query = query.eq("group_id", groupFilter);
+      if (discountFilter === "discount") query = query.gt("discount", 0);
+      if (discountFilter === "exemption") query = query.gt("exemption", 0);
+      if (discountFilter === "either") query = query.or("discount.gt.0,exemption.gt.0");
       const t = term.trim();
       if (t) {
         query = /^\d+$/.test(t)
