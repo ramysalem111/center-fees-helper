@@ -390,7 +390,6 @@ function PaymentsLog({ methods }: { methods: any[] }) {
     qc.invalidateQueries({ queryKey: ["payments-log"] });
     qc.invalidateQueries({ queryKey: ["dues"] });
     qc.invalidateQueries({ queryKey: ["last-payments"] });
-      qc.invalidateQueries({ queryKey: ["payments-log"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
   };
 
