@@ -143,13 +143,21 @@ function StudentsPage() {
         status: values.status as never,
         notes: values.notes.trim() || null,
       };
+      if (payload.phone) {
+        let dup = supabase.from("students").select("id").eq("phone", payload.phone).limit(1);
+        if (values.id) dup = dup.neq("id", values.id);
+        const { data: existing } = await dup;
+        if (existing && existing.length > 0) {
+          throw new Error("رقم الهاتف مسجل بالفعل لطالب آخر");
+        }
+      }
       if (values.id) {
         const { error } = await supabase.from("students").update(payload).eq("id", values.id);
-        if (error) throw error;
+        if (error) throw new Error(error.code === "23505" ? "رقم الهاتف مسجل بالفعل لطالب آخر" : error.message);
         await syncStudentDues(values.id);
       } else {
         const { data, error } = await supabase.from("students").insert(payload).select("id").single();
-        if (error) throw error;
+        if (error) throw new Error(error.code === "23505" ? "رقم الهاتف مسجل بالفعل لطالب آخر" : error.message);
         if (data?.id) await syncStudentDues(data.id);
       }
     },
