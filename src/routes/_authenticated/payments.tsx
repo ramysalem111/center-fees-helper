@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BanIcon, MessageCircle, Plus, RefreshCw, RotateCcw, Wallet } from "lucide-react";
+import { BanIcon, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { ensureDueForMonth, generateMonthlyDues, monthAr } from "@/lib/dues";
@@ -131,6 +131,7 @@ function PaymentsPage() {
       qc.invalidateQueries({ queryKey: ["dues"] });
       qc.invalidateQueries({ queryKey: ["quick-pay-dues"] });
       qc.invalidateQueries({ queryKey: ["last-payments"] });
+      qc.invalidateQueries({ queryKey: ["payments-log"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -359,7 +360,186 @@ function PaymentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PaymentsLog methods={lookups?.methods ?? []} />
     </div>
+  );
+}
+
+/** سجل الدفعات مع تعديل/حذف أي دفعة خاطئة */
+function PaymentsLog({ methods }: { methods: any[] }) {
+  const qc = useQueryClient();
+  const [edit, setEdit] = useState<any | null>(null);
+  const [del, setDel] = useState<any | null>(null);
+  const [form, setForm] = useState({ amount: "", paid_at: "", methodId: "", notes: "" });
+
+  const { data: payments = [], isLoading } = useQuery({
+    queryKey: ["payments-log"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*, students(full_name, code), dues(period_label), payment_methods(name)")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["payments-log"] });
+    qc.invalidateQueries({ queryKey: ["dues"] });
+    qc.invalidateQueries({ queryKey: ["last-payments"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const value = Number(form.amount);
+      if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+      const { error } = await supabase
+        .from("payments")
+        .update({
+          amount: value,
+          paid_at: form.paid_at,
+          payment_method_id: form.methodId || null,
+          notes: form.notes.trim() || null,
+        })
+        .eq("id", edit.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم تعديل الدفعة");
+      setEdit(null);
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("payments").delete().eq("id", del.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("تم حذف الدفعة");
+      setDel(null);
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardContent className="space-y-2 p-0">
+        <div className="flex items-center justify-between gap-2 p-3 pb-0">
+          <h2 className="text-base font-bold">سجل الدفعات</h2>
+          <span className="text-xs text-muted-foreground">يمكن تعديل أو حذف أي دفعة خاطئة</span>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>الطالب</TableHead>
+                <TableHead>شهر الاستحقاق</TableHead>
+                <TableHead>المبلغ</TableHead>
+                <TableHead>تاريخ الدفع</TableHead>
+                <TableHead>الطريقة</TableHead>
+                <TableHead>ملاحظات</TableHead>
+                <TableHead className="text-center">إجراءات</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">جارٍ التحميل...</TableCell></TableRow>}
+              {!isLoading && payments.length === 0 && (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">لا توجد دفعات مسجَّلة</TableCell></TableRow>
+              )}
+              {payments.map((p: any) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-medium">{p.students?.full_name ?? "—"}</TableCell>
+                  <TableCell>{p.dues?.period_label ? monthAr(p.dues.period_label) : "بدون استحقاق"}</TableCell>
+                  <TableCell>{EGP(p.amount)}</TableCell>
+                  <TableCell>{dateAr(p.paid_at)}</TableCell>
+                  <TableCell>{p.payment_methods?.name ?? "—"}</TableCell>
+                  <TableCell className="max-w-40 truncate text-xs text-muted-foreground">{p.notes ?? "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex justify-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        aria-label="تعديل الدفعة"
+                        onClick={() => {
+                          setEdit(p);
+                          setForm({
+                            amount: String(p.amount ?? ""),
+                            paid_at: p.paid_at ?? todayISO(),
+                            methodId: p.payment_method_id ?? "",
+                            notes: p.notes ?? "",
+                          });
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" aria-label="حذف الدفعة" onClick={() => setDel(p)}>
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+
+      <Dialog open={!!edit} onOpenChange={(o) => { if (!o) setEdit(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>تعديل دفعة — {edit?.students?.full_name}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="rounded-lg bg-muted p-2 text-xs">
+              شهر الاستحقاق: {edit?.dues?.period_label ? monthAr(edit.dues.period_label) : "بدون استحقاق"} — يتم تحديث حالة الشهر تلقائياً بعد التعديل
+            </p>
+            <div className="space-y-1.5">
+              <Label>المبلغ</Label>
+              <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>تاريخ الدفع</Label>
+              <Input type="date" value={form.paid_at} onChange={(e) => setForm({ ...form, paid_at: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>طريقة الدفع</Label>
+              <Select value={form.methodId || undefined} onValueChange={(v) => setForm({ ...form, methodId: v })}>
+                <SelectTrigger><SelectValue placeholder="اختر" /></SelectTrigger>
+                <SelectContent>
+                  {methods.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>ملاحظات</Label>
+              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>حفظ التعديل</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!del} onOpenChange={(o) => { if (!o) setDel(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>حذف الدفعة</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            سيتم حذف دفعة {EGP(del?.amount ?? 0)} للطالب {del?.students?.full_name} وإرجاع حالة الشهر إلى غير مدفوع.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDel(null)}>إلغاء</Button>
+            <Button variant="destructive" onClick={() => remove.mutate()} disabled={remove.isPending}>تأكيد الحذف</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
 
@@ -493,6 +673,7 @@ function NewPaymentForm({
       toast.success(fullExempt ? "تم إعفاء الطالب من هذا الشهر" : "تم تسجيل الدفعة");
       qc.invalidateQueries({ queryKey: ["dues"] });
       qc.invalidateQueries({ queryKey: ["last-payments"] });
+      qc.invalidateQueries({ queryKey: ["payments-log"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       onDone();
     },
