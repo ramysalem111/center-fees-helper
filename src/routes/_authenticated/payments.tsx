@@ -35,6 +35,7 @@ function PaymentsPage() {
   const [status, setStatus] = useState("unpaid");
   const [groupId, setGroupId] = useState("all");
   const [payDue, setPayDue] = useState<any | null>(null);
+  const [payPeriod, setPayPeriod] = useState("");
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
   const [newOpen, setNewOpen] = useState(false);
@@ -90,13 +91,30 @@ function PaymentsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** استحقاقات الطالب المختار في نافذة التحصيل — للسماح بتحديد شهر الاستحقاق */
+  const { data: payStudentDues = [] } = useQuery({
+    queryKey: ["quick-pay-dues", payDue?.student_id],
+    enabled: !!payDue?.student_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dues")
+        .select("*")
+        .eq("student_id", payDue.student_id)
+        .order("due_date", { ascending: false });
+      return data ?? [];
+    },
+  });
+
   const pay = useMutation({
     mutationFn: async () => {
       const value = Number(amount);
       if (!payDue || !value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+      const label = payPeriod || payDue.period_label;
+      const target = await ensureDueForMonth(payDue.student_id, payDue.group_id ?? null, label);
+      if (target.status === "paid") throw new Error("هذا الشهر محصَّل بالكامل — اختر شهراً آخر");
       const { error } = await supabase.from("payments").insert({
         student_id: payDue.student_id,
-        due_id: payDue.id,
+        due_id: target.id,
         amount: value,
         payment_method_id: methodId || null,
         paid_at: todayISO(),
@@ -107,7 +125,9 @@ function PaymentsPage() {
       toast.success("تم تسجيل الدفعة");
       setPayDue(null);
       setAmount("");
+      setPayPeriod("");
       qc.invalidateQueries({ queryKey: ["dues"] });
+      qc.invalidateQueries({ queryKey: ["quick-pay-dues"] });
       qc.invalidateQueries({ queryKey: ["last-payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -202,7 +222,7 @@ function PaymentsPage() {
                 <TableRow key={d.id}>
                   <TableCell className="font-medium">{d.students?.full_name}</TableCell>
                   <TableCell>{d.groups?.name ?? "—"}</TableCell>
-                  <TableCell>{d.period_label}</TableCell>
+                  <TableCell>{monthAr(d.period_label)}</TableCell>
                   <TableCell>{EGP(d.amount)}</TableCell>
                   <TableCell>{EGP(d.paid_amount)}</TableCell>
                   <TableCell>
@@ -236,6 +256,7 @@ function PaymentsPage() {
                         disabled={d.status === "paid" || d.status === "exempt"}
                         onClick={() => {
                           setPayDue(d);
+                          setPayPeriod(d.period_label);
                           setAmount(String(Number(d.amount) - Number(d.paid_amount)));
                         }}
                       >
@@ -282,10 +303,35 @@ function PaymentsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!payDue} onOpenChange={(o) => !o && setPayDue(null)}>
+      <Dialog open={!!payDue} onOpenChange={(o) => { if (!o) { setPayDue(null); setPayPeriod(""); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>تسجيل دفعة — {payDue?.students?.full_name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>شهر الاستحقاق</Label>
+              <Select
+                value={payPeriod || undefined}
+                onValueChange={(v) => {
+                  setPayPeriod(v);
+                  const d = (payStudentDues as any[]).find((x) => x.period_label === v);
+                  setAmount(d ? String(Number(d.amount) - Number(d.paid_amount)) : "");
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
+                <SelectContent>
+                  {(payStudentDues as any[]).map((d) => (
+                    <SelectItem key={d.id} value={d.period_label}>
+                      {d.status === "paid"
+                        ? `${monthAr(d.period_label)} — مدفوع`
+                        : `${monthAr(d.period_label)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                كل دفعة تُسجَّل على شهر استحقاق محدد — يمكن تسجيل أكثر من دفعة في نفس اليوم لأشهر مختلفة.
+              </p>
+            </div>
             <div className="space-y-1.5">
               <Label>المبلغ</Label>
               <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
