@@ -509,6 +509,7 @@ function PaymentsLog({ methods }: { methods: any[] }) {
                             paid_at: p.paid_at ?? todayISO(),
                             methodId: p.payment_method_id ?? "",
                             notes: p.notes ?? "",
+                            period: p.dues?.period_label ?? "",
                           });
                         }}
                       >
@@ -530,9 +531,24 @@ function PaymentsLog({ methods }: { methods: any[] }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>تعديل دفعة — {edit?.students?.full_name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="rounded-lg bg-muted p-2 text-xs">
-              شهر الاستحقاق: {edit?.dues?.period_label ? monthAr(edit.dues.period_label) : "بدون استحقاق"} — يتم تحديث حالة الشهر تلقائياً بعد التعديل
-            </p>
+            <div className="space-y-1.5">
+              <Label>شهر الاستحقاق</Label>
+              <Select value={form.period || undefined} onValueChange={(v) => setForm({ ...form, period: v })}>
+                <SelectTrigger><SelectValue placeholder="اختر الشهر" /></SelectTrigger>
+                <SelectContent>
+                  {(editStudentDues as any[]).map((d: any) => (
+                    <SelectItem key={d.id} value={d.period_label}>
+                      {monthAr(d.period_label)}
+                      {Number(d.paid_amount ?? 0) >= Number(d.amount ?? 0) ? " — مدفوع" : ` — متبقي ${Number(d.amount) - Number(d.paid_amount)}`}
+                    </SelectItem>
+                  ))}
+                  {!(editStudentDues as any[]).some((d: any) => d.period_label === form.period) && form.period && (
+                    <SelectItem value={form.period}>{monthAr(form.period)}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">تغيير الشهر ينقل الدفعة للاستحقاق الصحيح ويحدث حالة الشهرين تلقائياً</p>
+            </div>
             <div className="space-y-1.5">
               <Label>المبلغ</Label>
               <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
