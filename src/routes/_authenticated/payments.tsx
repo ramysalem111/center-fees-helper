@@ -67,17 +67,19 @@ function PaymentsPage() {
     },
   });
 
-  /** آخر تاريخ دفع لكل طالب — يظهر مع حالات عدم الدفع */
+  /** آخر دفعة لكل طالب: التاريخ استرشادي، والمهم شهر الاستحقاق المحصَّل */
   const { data: lastPaid = {} } = useQuery({
     queryKey: ["last-payments"],
     queryFn: async () => {
       const { data } = await supabase
         .from("payments")
-        .select("student_id, paid_at")
+        .select("student_id, paid_at, dues(period_label)")
         .order("paid_at", { ascending: false })
         .limit(2000);
-      const map: Record<string, string> = {};
-      for (const p of data ?? []) if (!map[p.student_id]) map[p.student_id] = p.paid_at;
+      const map: Record<string, { paid_at: string; period?: string | null }> = {};
+      for (const p of (data ?? []) as any[]) {
+        if (!map[p.student_id]) map[p.student_id] = { paid_at: p.paid_at, period: p.dues?.period_label ?? null };
+      }
       return map;
     },
   });
@@ -242,11 +244,17 @@ function PaymentsPage() {
                   </TableCell>
                   <TableCell>{dateAr(d.due_date)}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {d.status === "paid"
-                      ? "—"
-                      : (lastPaid as Record<string, string>)[d.student_id]
-                        ? dateAr((lastPaid as Record<string, string>)[d.student_id])
-                        : "لم يدفع من قبل"}
+                    {(() => {
+                      const last = (lastPaid as Record<string, { paid_at: string; period?: string | null }>)[d.student_id];
+                      if (!last) return "لم يدفع من قبل";
+                      return (
+                        <span className="text-xs">
+                          {last.period ? `استحقاق ${monthAr(last.period)}` : "بدون استحقاق"}
+                          <br />
+                          <span className="opacity-70">بتاريخ {dateAr(last.paid_at)}</span>
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-center gap-1">
