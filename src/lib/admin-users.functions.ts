@@ -9,6 +9,7 @@ const schema = z.object({
   full_name: z.string().trim().min(2, "الاسم مطلوب").max(120),
   phone: z.string().trim().max(20).optional().default(""),
   role: z.enum(["admin", "staff"]),
+  sections: z.array(z.string().max(40)).max(30).optional().default([]),
 });
 
 export const createStaffUser = createServerFn({ method: "POST" })
@@ -35,6 +36,14 @@ export const createStaffUser = createServerFn({ method: "POST" })
       await supabaseAdmin
         .from("user_roles")
         .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+    }
+    if (userId && data.sections.length) {
+      await supabaseAdmin
+        .from("user_permissions")
+        .upsert(
+          data.sections.map((section) => ({ user_id: userId, section })),
+          { onConflict: "user_id,section" },
+        );
     }
     return { id: userId };
   });

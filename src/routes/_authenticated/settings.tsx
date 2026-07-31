@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DEFAULT_STAFF_SECTIONS, SECTIONS } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -33,6 +35,7 @@ const TABLES = [
   { key: "governorates", label: "المحافظات" },
   { key: "payment_methods", label: "طرق الدفع" },
   { key: "expense_types", label: "أنواع المصروفات" },
+  { key: "income_types", label: "أنواع الإيرادات الأخرى" },
   {
     key: "billing_systems",
     label: "أنظمة الدفع",
@@ -105,16 +108,22 @@ function UsersCard() {
   const qc = useQueryClient();
   const addUser = useServerFn(createStaffUser);
   const [form, setForm] = useState({ full_name: "", email: "", phone: "", password: "", role: "staff" });
+  const [sections, setSections] = useState<string[]>([...DEFAULT_STAFF_SECTIONS]);
 
   const { data: users = [] } = useQuery({
     queryKey: ["app-users"],
     queryFn: async () => {
-      const [profiles, roles] = await Promise.all([
+      const [profiles, roles, perms] = await Promise.all([
         supabase.from("profiles").select("id, full_name, phone, created_at").order("created_at"),
         supabase.from("user_roles").select("user_id, role"),
+        supabase.from("user_permissions").select("user_id, section"),
       ]);
       const roleMap = new Map((roles.data ?? []).map((r) => [r.user_id, r.role]));
-      return (profiles.data ?? []).map((p) => ({ ...p, role: roleMap.get(p.id) ?? "staff" }));
+      return (profiles.data ?? []).map((p) => ({
+        ...p,
+        role: roleMap.get(p.id) ?? "staff",
+        sections: (perms.data ?? []).filter((x) => x.user_id === p.id).map((x) => x.section),
+      }));
     },
   });
 
@@ -127,14 +136,35 @@ function UsersCard() {
           phone: form.phone,
           password: form.password,
           role: form.role as "admin" | "staff",
+          sections: form.role === "admin" ? [] : sections,
         },
       }),
     onSuccess: () => {
       toast.success("تم إنشاء الحساب");
       setForm({ full_name: "", email: "", phone: "", password: "", role: "staff" });
+      setSections([...DEFAULT_STAFF_SECTIONS]);
       qc.invalidateQueries({ queryKey: ["app-users"] });
     },
     onError: (e: Error) => toast.error(e.message || "تعذّر إنشاء الحساب"),
+  });
+
+  const savePerms = useMutation({
+    mutationFn: async ({ userId, next }: { userId: string; next: string[] }) => {
+      const del = await supabase.from("user_permissions").delete().eq("user_id", userId);
+      if (del.error) throw del.error;
+      if (next.length) {
+        const { error } = await supabase
+          .from("user_permissions")
+          .insert(next.map((section) => ({ user_id: userId, section })));
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("تم حفظ الصلاحيات");
+      qc.invalidateQueries({ queryKey: ["app-users"] });
+      qc.invalidateQueries({ queryKey: ["my-permissions"] });
+    },
+    onError: () => toast.error("تعديل الصلاحيات متاح للمدير فقط"),
   });
 
   return (
@@ -175,18 +205,83 @@ function UsersCard() {
           </div>
         </div>
 
+        {form.role !== "admin" && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="text-sm font-semibold">الشاشات المسموح بها للحساب الجديد</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {SECTIONS.map((s) => (
+                <label key={s.key} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={sections.includes(s.key)}
+                    onCheckedChange={(v) =>
+                      setSections((prev) => (v ? [...prev, s.key] : prev.filter((x) => x !== s.key)))
+                    }
+                  />
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <p className="text-sm font-semibold">المستخدمون الحاليون</p>
           {users.map((u: any) => (
-            <div key={u.id} className="flex items-center justify-between rounded-lg border p-2 text-sm">
-              <span className="font-medium">{u.full_name || "بدون اسم"}</span>
-              <span className="text-muted-foreground" dir="ltr">{u.phone ?? ""}</span>
-              <Badge variant={u.role === "admin" ? "default" : "secondary"}>{u.role === "admin" ? "مدير" : "موظف"}</Badge>
-            </div>
+            <UserRow key={u.id} user={u} onSave={(next) => savePerms.mutate({ userId: u.id, next })} saving={savePerms.isPending} />
           ))}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function UserRow({
+  user,
+  onSave,
+  saving,
+}: {
+  user: { id: string; full_name: string; phone?: string | null; role: string; sections: string[] };
+  onSave: (next: string[]) => void;
+  saving: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [sections, setSections] = useState<string[]>(
+    user.sections.length ? user.sections : [...DEFAULT_STAFF_SECTIONS],
+  );
+
+  return (
+    <div className="space-y-2 rounded-lg border p-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{user.full_name || "بدون اسم"}</span>
+        <span className="text-muted-foreground" dir="ltr">{user.phone ?? ""}</span>
+        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+          {user.role === "admin" ? "مدير" : "موظف"}
+        </Badge>
+        {user.role !== "admin" && (
+          <Button size="sm" variant="outline" className="ms-auto" onClick={() => setOpen((o) => !o)}>
+            {open ? "إغلاق" : "الصلاحيات"}
+          </Button>
+        )}
+      </div>
+      {open && user.role !== "admin" && (
+        <div className="space-y-2 border-t pt-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {SECTIONS.map((s) => (
+              <label key={s.key} className="flex items-center gap-2">
+                <Checkbox
+                  checked={sections.includes(s.key)}
+                  onCheckedChange={(v) =>
+                    setSections((prev) => (v ? [...prev, s.key] : prev.filter((x) => x !== s.key)))
+                  }
+                />
+                {s.label}
+              </label>
+            ))}
+          </div>
+          <Button size="sm" disabled={saving} onClick={() => onSave(sections)}>حفظ الصلاحيات</Button>
+        </div>
+      )}
+    </div>
   );
 }
 
