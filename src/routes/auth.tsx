@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -37,7 +36,6 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -45,7 +43,7 @@ function AuthPage() {
     });
   }, [navigate]);
 
-  async function submit(mode: "signin" | "signup") {
+  async function submit() {
     const pass = passwordSchema.safeParse(password);
     if (!pass.success) {
       toast.error(pass.error.issues[0].message);
@@ -59,37 +57,19 @@ function AuthPage() {
     const authEmail = phoneToEmail(identifier.data);
     setLoading(true);
     try {
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password,
-        });
-        if (error) throw error;
-        toast.success("تم تسجيل الدخول");
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email: authEmail,
-          password,
-          options: {
-            emailRedirectTo: window.location.origin,
-            data: {
-              full_name: fullName,
-              phone: identifier.data,
-            },
-          },
-        });
-        if (error) throw error;
-        toast.success("تم إنشاء الحساب بنجاح");
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password,
+      });
+      if (error) throw error;
+      toast.success("تم تسجيل الدخول");
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "حدث خطأ";
       toast.error(
         message.includes("Invalid login")
           ? "بيانات الدخول غير صحيحة"
-          : message.includes("already registered")
-            ? "هذا الحساب مسجّل بالفعل"
-            : message,
+          : message,
       );
     } finally {
       setLoading(false);
@@ -129,42 +109,22 @@ function AuthPage() {
           <CardHeader>
             <CardTitle>مرحباً بك</CardTitle>
           <CardDescription>
-            سجّل الدخول أو أنشئ حساباً جديداً برقم الهاتف
+            سجّل الدخول برقم الهاتف. إنشاء الحسابات يتم من داخل النظام عبر المدير.
           </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">تسجيل الدخول</TabsTrigger>
-                <TabsTrigger value="signup">حساب جديد</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="signin" className="mt-4 space-y-4">
-                {identifierField("signin")}
-                <Field label="كلمة المرور" id="password">
-                  <Input id="password" type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} />
-                </Field>
-                <Button className="w-full" disabled={loading} onClick={() => submit("signin")}>
-                  {loading ? "جارٍ الدخول..." : "دخول"}
-                </Button>
-              </TabsContent>
-
-              <TabsContent value="signup" className="mt-4 space-y-4">
-                <Field label="الاسم الكامل" id="name">
-                  <Input id="name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                </Field>
-                {identifierField("signup")}
-                <Field label="كلمة المرور" id="password2">
-                  <Input id="password2" type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} />
-                </Field>
-                <Button className="w-full" disabled={loading} onClick={() => submit("signup")}>
-                  {loading ? "جارٍ الإنشاء..." : "إنشاء الحساب"}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  أول حساب يتم إنشاؤه يحصل على صلاحيات المدير تلقائياً.
-                </p>
-              </TabsContent>
-            </Tabs>
+            <div className="space-y-4">
+              {identifierField("signin")}
+              <Field label="كلمة المرور" id="password">
+                <Input id="password" type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </Field>
+              <Button className="w-full" disabled={loading} onClick={() => submit()}>
+                {loading ? "جارٍ الدخول..." : "دخول"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                لإنشاء حساب موظف جديد، استخدم شاشة الإعدادات من حساب المدير.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
