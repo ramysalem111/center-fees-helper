@@ -39,6 +39,7 @@ function PaymentsPage() {
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [sumMonth, setSumMonth] = useState("all");
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
