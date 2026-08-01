@@ -153,7 +153,7 @@ function PaymentsPage() {
     .reduce((s: number, d: any) => s + Number(d.amount) - Number(d.paid_amount), 0);
 
   const { data: groupSummary = [] } = useQuery({
-    queryKey: ["dues-group-summary", sumMonth],
+    queryKey: ["dues", "group-summary", sumMonth],
     queryFn: async () => {
       let q = supabase.from("dues").select("group_id, amount, paid_amount, status, groups(name)");
       if (sumMonth !== "all") q = q.eq("period_label", sumMonth);
