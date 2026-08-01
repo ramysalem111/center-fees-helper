@@ -244,7 +244,6 @@ function PaymentsPage() {
               <TableRow>
                 <TableHead>الطالب</TableHead>
                 <TableHead>المجموعة</TableHead>
-                <TableHead>المجموعة</TableHead>
                 <TableHead>الفترة</TableHead>
                 <TableHead>المطلوب</TableHead>
                 <TableHead>المدفوع</TableHead>
