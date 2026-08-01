@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BanIcon, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Wallet } from "lucide-react";
@@ -92,6 +92,16 @@ function PaymentsPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  /** توليد استحقاقات الشهر تلقائياً عند فتح الشاشة حتى تظهر المستحقات من يوم 1 */
+  const autoGen = useRef(false);
+  useEffect(() => {
+    if (autoGen.current) return;
+    autoGen.current = true;
+    generateMonthlyDues()
+      .then((n) => { if (n) qc.invalidateQueries({ queryKey: ["dues"] }); })
+      .catch(() => {});
+  }, [qc]);
 
   /** استحقاقات الطالب المختار في نافذة التحصيل — للسماح بتحديد شهر الاستحقاق */
   const { data: payStudentDues = [] } = useQuery({
