@@ -43,15 +43,20 @@ export function nearbyMonths(base?: string): string[] {
 }
 
 /**
- * الطالب المسجّل في المجموعة قبل شهر تفعيل المجموعة لا يستحق دفع.
- * ترجع true لو الطالب مستحق (تسجيله في شهر التفعيل أو بعده).
+ * شهر بداية استحقاق الطالب = الأحدث بين شهر تفعيل المجموعة وشهر تسجيل الطالب.
+ * فالطالب لا يستحق أشهر سابقة لتسجيله ولا أشهر سابقة لتفعيل المجموعة.
  */
-export const isStudentDueEligible = (studentCreatedAt?: string | null, activatedAt?: string | null) => {
+export const studentStartMonth = (studentCreatedAt?: string | null, activatedAt?: string | null) => {
   const joined = monthOf(studentCreatedAt);
   const start = (activatedAt ?? "").slice(0, 7);
-  if (!joined || !start) return true;
-  return joined >= start;
+  if (!joined) return start;
+  if (!start) return joined;
+  return joined > start ? joined : start;
 };
+
+/** ترجع أشهر استحقاق الطالب حتى الشهر الحالي */
+export const studentDueLabels = (studentCreatedAt?: string | null, activatedAt?: string | null) =>
+  monthsFrom(studentStartMonth(studentCreatedAt, activatedAt));
 
 /**
  * يولّد الاستحقاقات الشهرية لكل مجموعة مُفعَّلة، من شهر التفعيل حتى الشهر الحالي،
@@ -82,15 +87,13 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
   const labels = monthsFrom(start);
   if (!labels.length) return 0;
 
-  const { data: allStudents } = await supabase
+  const { data: students } = await supabase
     .from("students")
     .select("id, final_amount, created_at")
     .eq("group_id", groupId)
     .eq("status", "active")
     .eq("archived", false);
-  // الطالب المسجّل قبل شهر تفعيل المجموعة لا يستحق دفع
-  const students = (allStudents ?? []).filter((s) => isStudentDueEligible(s.created_at, start));
-  if (!students.length) return 0;
+  if (!students?.length) return 0;
 
   const { data: existing } = await supabase
     .from("dues")
@@ -100,8 +103,10 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
   const byKey = new Map((existing ?? []).map((d) => [`${d.student_id}|${d.period_label}`, d]));
 
   const rows: any[] = [];
-  for (const label of labels) {
-    for (const s of students) {
+  for (const s of students) {
+    const own = new Set(studentDueLabels(s.created_at, start));
+    for (const label of labels) {
+      if (!own.has(label)) continue;
       const prev = byKey.get(`${s.id}|${label}`);
       if (prev) {
         // استحقاق موجود لنفس الشهر: لو مدفوع لا نكرره، ولو غير مدفوع ننقله للمجموعة الجديدة
@@ -182,13 +187,7 @@ export async function syncStudentDues(studentId: string) {
 
   if (!g?.is_active) return;
 
-  // الطالب المسجّل قبل شهر تفعيل المجموعة لا يستحق دفع
-  if (!isStudentDueEligible(s.created_at, g.activated_at)) {
-    await removeUnpaidDues(studentId, s.group_id);
-    return;
-  }
-
-  const labels = monthsFrom(g.activated_at ?? new Date().toISOString().slice(0, 7));
+  const labels = studentDueLabels(s.created_at, g.activated_at ?? new Date().toISOString().slice(0, 7));
   if (!labels.length) return;
 
   const { data: existing } = await supabase
