@@ -152,6 +152,32 @@ function PaymentsPage() {
     .filter((d: any) => d.status !== "exempt")
     .reduce((s: number, d: any) => s + Number(d.amount) - Number(d.paid_amount), 0);
 
+  const { data: groupSummary = [] } = useQuery({
+    queryKey: ["dues-group-summary", sumMonth],
+    queryFn: async () => {
+      let q = supabase.from("dues").select("group_id, amount, paid_amount, status, groups(name)");
+      if (sumMonth !== "all") q = q.eq("period_label", sumMonth);
+      const { data } = await q;
+      const map = new Map<string, { name: string; required: number; paid: number; remaining: number }>();
+      for (const d of (data ?? []) as any[]) {
+        const key = d.group_id ?? "none";
+        const row = map.get(key) ?? { name: d.groups?.name ?? "بدون مجموعة", required: 0, paid: 0, remaining: 0 };
+        const paid = Number(d.paid_amount ?? 0);
+        row.paid += paid;
+        if (d.status !== "exempt") {
+          row.required += Number(d.amount ?? 0);
+          row.remaining += Math.max(0, Number(d.amount ?? 0) - paid);
+        }
+        map.set(key, row);
+      }
+      return [...map.values()].sort((a, b) => b.remaining - a.remaining);
+    },
+  });
+  const sumTotals = groupSummary.reduce(
+    (a, r) => ({ required: a.required + r.required, paid: a.paid + r.paid, remaining: a.remaining + r.remaining }),
+    { required: 0, paid: 0, remaining: 0 },
+  );
+
   const toggleExempt = useMutation({
     mutationFn: async (due: any) => {
       const next = due.status === "exempt" ? "unpaid" : "exempt";
