@@ -488,7 +488,7 @@ function PaymentsLog({ methods }: { methods: any[] }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payments")
-        .select("*, students(full_name, code), dues(period_label), payment_methods(name)")
+        .select("*, students(full_name, code, groups(name)), dues(period_label, groups(name)), payment_methods(name)")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -562,6 +562,7 @@ function PaymentsLog({ methods }: { methods: any[] }) {
             <TableHeader>
               <TableRow>
                 <TableHead>الطالب</TableHead>
+                <TableHead>المجموعة</TableHead>
                 <TableHead>شهر الاستحقاق</TableHead>
                 <TableHead>المبلغ</TableHead>
                 <TableHead>تاريخ الدفع</TableHead>
@@ -571,13 +572,14 @@ function PaymentsLog({ methods }: { methods: any[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">جارٍ التحميل...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">جارٍ التحميل...</TableCell></TableRow>}
               {!isLoading && payments.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">لا توجد دفعات مسجَّلة</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">لا توجد دفعات مسجَّلة</TableCell></TableRow>
               )}
               {payments.map((p: any) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.students?.full_name ?? "—"}</TableCell>
+                  <TableCell>{p.dues?.groups?.name ?? p.students?.groups?.name ?? "—"}</TableCell>
                   <TableCell>{p.dues?.period_label ? monthAr(p.dues.period_label) : "بدون استحقاق"}</TableCell>
                   <TableCell>{EGP(p.amount)}</TableCell>
                   <TableCell>{dateAr(p.paid_at)}</TableCell>
