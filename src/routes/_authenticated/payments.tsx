@@ -238,6 +238,54 @@ function PaymentsPage() {
       </Card>
 
       <Card>
+        <CardContent className="p-0">
+          <div className="flex flex-wrap items-center gap-2 p-3">
+            <span className="text-sm font-bold">ملخص كل مجموعة</span>
+            <Select value={sumMonth} onValueChange={setSumMonth}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الشهور</SelectItem>
+                {nearbyMonths().map((m) => <SelectItem key={m} value={m}>{monthAr(m)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>المجموعة</TableHead>
+                  <TableHead>المطلوب</TableHead>
+                  <TableHead>المدفوع</TableHead>
+                  <TableHead>المتبقي</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupSummary.length === 0 && (
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">لا توجد بيانات</TableCell></TableRow>
+                )}
+                {groupSummary.map((r) => (
+                  <TableRow key={r.name}>
+                    <TableCell className="font-medium">{r.name}</TableCell>
+                    <TableCell>{EGP(r.required)}</TableCell>
+                    <TableCell className="text-success">{EGP(r.paid)}</TableCell>
+                    <TableCell className={r.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(r.remaining)}</TableCell>
+                  </TableRow>
+                ))}
+                {groupSummary.length > 0 && (
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell>الإجمالي</TableCell>
+                    <TableCell>{EGP(sumTotals.required)}</TableCell>
+                    <TableCell>{EGP(sumTotals.paid)}</TableCell>
+                    <TableCell>{EGP(sumTotals.remaining)}</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
