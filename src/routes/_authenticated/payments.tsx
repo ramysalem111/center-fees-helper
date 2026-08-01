@@ -39,6 +39,7 @@ function PaymentsPage() {
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [sumMonth, setSumMonth] = useState("all");
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
@@ -151,6 +152,32 @@ function PaymentsPage() {
     .filter((d: any) => d.status !== "exempt")
     .reduce((s: number, d: any) => s + Number(d.amount) - Number(d.paid_amount), 0);
 
+  const { data: groupSummary = [] } = useQuery({
+    queryKey: ["dues", "group-summary", sumMonth],
+    queryFn: async () => {
+      let q = supabase.from("dues").select("group_id, amount, paid_amount, status, groups(name)");
+      if (sumMonth !== "all") q = q.eq("period_label", sumMonth);
+      const { data } = await q;
+      const map = new Map<string, { name: string; required: number; paid: number; remaining: number }>();
+      for (const d of (data ?? []) as any[]) {
+        const key = d.group_id ?? "none";
+        const row = map.get(key) ?? { name: d.groups?.name ?? "بدون مجموعة", required: 0, paid: 0, remaining: 0 };
+        const paid = Number(d.paid_amount ?? 0);
+        row.paid += paid;
+        if (d.status !== "exempt") {
+          row.required += Number(d.amount ?? 0);
+          row.remaining += Math.max(0, Number(d.amount ?? 0) - paid);
+        }
+        map.set(key, row);
+      }
+      return [...map.values()].sort((a, b) => b.remaining - a.remaining);
+    },
+  });
+  const sumTotals = groupSummary.reduce(
+    (a, r) => ({ required: a.required + r.required, paid: a.paid + r.paid, remaining: a.remaining + r.remaining }),
+    { required: 0, paid: 0, remaining: 0 },
+  );
+
   const toggleExempt = useMutation({
     mutationFn: async (due: any) => {
       const next = due.status === "exempt" ? "unpaid" : "exempt";
@@ -207,6 +234,54 @@ function PaymentsPage() {
           <Button variant="outline" className="gap-2" onClick={() => genMonthly.mutate()} disabled={genMonthly.isPending}>
             <RefreshCw className="size-4" /> توليد استحقاقات الشهر
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex flex-wrap items-center gap-2 p-3">
+            <span className="text-sm font-bold">ملخص كل مجموعة</span>
+            <Select value={sumMonth} onValueChange={setSumMonth}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الشهور</SelectItem>
+                {nearbyMonths().map((m) => <SelectItem key={m} value={m}>{monthAr(m)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>المجموعة</TableHead>
+                  <TableHead>المطلوب</TableHead>
+                  <TableHead>المدفوع</TableHead>
+                  <TableHead>المتبقي</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupSummary.length === 0 && (
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">لا توجد بيانات</TableCell></TableRow>
+                )}
+                {groupSummary.map((r) => (
+                  <TableRow key={r.name}>
+                    <TableCell className="font-medium">{r.name}</TableCell>
+                    <TableCell>{EGP(r.required)}</TableCell>
+                    <TableCell className="text-success">{EGP(r.paid)}</TableCell>
+                    <TableCell className={r.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(r.remaining)}</TableCell>
+                  </TableRow>
+                ))}
+                {groupSummary.length > 0 && (
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell>الإجمالي</TableCell>
+                    <TableCell>{EGP(sumTotals.required)}</TableCell>
+                    <TableCell>{EGP(sumTotals.paid)}</TableCell>
+                    <TableCell>{EGP(sumTotals.remaining)}</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
