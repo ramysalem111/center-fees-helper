@@ -66,6 +66,7 @@ function AttendanceRecordPage() {
         .select("id, code, full_name")
         .eq("group_id", groupId)
         .eq("archived", false)
+        .eq("status", "active")
         .order("full_name");
       return data ?? [];
     },
