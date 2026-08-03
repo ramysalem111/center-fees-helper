@@ -184,6 +184,8 @@ function StudentsPage() {
       setOpen(false);
       setForm(empty);
       qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["students-counts"] });
+      qc.invalidateQueries({ queryKey: ["group-active-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
     },
@@ -204,6 +206,8 @@ function StudentsPage() {
       setTarget(null);
       setPwd("");
       qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["students-counts"] });
+      qc.invalidateQueries({ queryKey: ["group-active-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
     },
