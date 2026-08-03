@@ -45,6 +45,7 @@ function GroupScreen() {
         .from("students")
         .select("id, code, full_name, status, final_amount")
         .eq("group_id", groupId)
+        .eq("status", "active")
         .eq("archived", false)
         .order("full_name");
       return data ?? [];
@@ -84,6 +85,13 @@ function GroupScreen() {
   const dueByStudent = new Map<string, any>();
   for (const d of dues as any[]) if (!dueByStudent.has(d.student_id)) dueByStudent.set(d.student_id, d);
 
+  /** عدد الطلاب الذين لم يسددوا شهر الاستحقاق المختار (بدون المعفَيين) */
+  const unpaidCount = (students as any[]).filter((s) => {
+    const due = dueByStudent.get(s.id);
+    if (!due) return false;
+    return due.status !== "paid" && due.status !== "exempt";
+  }).length;
+
   const monthOptions = (() => {
     const out: string[] = [];
     const now = new Date();
@@ -118,6 +126,9 @@ function GroupScreen() {
             الاشتراك صالح من {dateAr(range.start)} حتى {dateAr(range.end)} — تاريخ الدفع استرشادي، والمحاسبة على شهر الاستحقاق
           </span>
           <Badge variant="secondary" className="ms-auto">{students.length} طالب</Badge>
+          <Badge variant={unpaidCount ? "destructive" : "default"}>
+            {unpaidCount} لم يدفعوا {monthAr(month)}
+          </Badge>
         </CardContent>
       </Card>
 
