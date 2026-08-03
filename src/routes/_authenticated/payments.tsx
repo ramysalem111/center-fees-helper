@@ -57,7 +57,9 @@ function PaymentsPage() {
     queryFn: async () => {
       let q = supabase
         .from("dues")
-        .select("*, students(full_name, code, phone, guardian_phone), groups(name)")
+        .select("*, students!inner(full_name, code, phone, guardian_phone, status, archived), groups(name)")
+        .eq("students.status", "active")
+        .eq("students.archived", false)
         .order("due_date", { ascending: false })
         .limit(500);
       if (status !== "all") q = q.eq("status", status as "unpaid" | "partial" | "paid" | "exempt");
@@ -155,7 +157,11 @@ function PaymentsPage() {
   const { data: groupSummary = [] } = useQuery({
     queryKey: ["dues", "group-summary", sumMonth],
     queryFn: async () => {
-      let q = supabase.from("dues").select("group_id, amount, paid_amount, status, groups(name)");
+      let q = supabase
+        .from("dues")
+        .select("group_id, amount, paid_amount, status, groups(name), students!inner(status, archived)")
+        .eq("students.status", "active")
+        .eq("students.archived", false);
       if (sumMonth !== "all") q = q.eq("period_label", sumMonth);
       const { data } = await q;
       const map = new Map<string, { name: string; required: number; paid: number; remaining: number }>();
@@ -714,6 +720,7 @@ function NewPaymentForm({
         .from("students")
         .select("id, full_name, code, fee, discount, exemption, final_amount")
         .eq("group_id", groupId)
+        .eq("status", "active")
         .eq("archived", false)
         .order("full_name");
       return data ?? [];
