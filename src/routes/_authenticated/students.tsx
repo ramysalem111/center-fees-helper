@@ -241,6 +241,11 @@ function StudentsPage() {
           <p className="text-sm text-muted-foreground">
             {students.length} طالب — إجمالي الاشتراكات {EGP(totals)}
           </p>
+          <p className="mt-1 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-md bg-muted px-2 py-0.5">الإجمالي {counts?.total ?? 0}</span>
+            <span className="rounded-md bg-success/15 px-2 py-0.5 text-success-foreground">المستمر {counts?.active ?? 0}</span>
+            <span className="rounded-md bg-destructive/15 px-2 py-0.5">المتوقف {counts?.stopped ?? 0}</span>
+          </p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setForm(empty); }}>
           <DialogTrigger asChild>
