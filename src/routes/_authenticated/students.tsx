@@ -130,8 +130,21 @@ function StudentsPage() {
     },
   });
 
-  const save = useMutation({
+  /** أعداد الطلاب: الإجمالي والمستمر والمتوقف (مستقلة عن الفلاتر) */
+  const { data: counts } = useQuery({
+    queryKey: ["students-counts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("students").select("status").eq("archived", false);
+      const rows = (data ?? []) as { status: string }[];
+      return {
+        total: rows.length,
+        active: rows.filter((r) => r.status === "active").length,
+        stopped: rows.filter((r) => r.status !== "active").length,
+      };
+    },
+  });
 
+  const save = useMutation({
     mutationFn: async (values: StudentForm) => {
       const parsed = schema.safeParse(values);
       if (!parsed.success) throw new Error(parsed.error.issues[0].message);
