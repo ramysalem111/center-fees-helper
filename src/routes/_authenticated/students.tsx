@@ -130,6 +130,20 @@ function StudentsPage() {
     },
   });
 
+  /** أعداد الطلاب: الإجمالي والمستمر والمتوقف (مستقلة عن الفلاتر) */
+  const { data: counts } = useQuery({
+    queryKey: ["students-counts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("students").select("status").eq("archived", false);
+      const rows = (data ?? []) as { status: string }[];
+      return {
+        total: rows.length,
+        active: rows.filter((r) => r.status === "active").length,
+        stopped: rows.filter((r) => r.status !== "active").length,
+      };
+    },
+  });
+
   const save = useMutation({
     mutationFn: async (values: StudentForm) => {
       const parsed = schema.safeParse(values);
@@ -170,6 +184,8 @@ function StudentsPage() {
       setOpen(false);
       setForm(empty);
       qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["students-counts"] });
+      qc.invalidateQueries({ queryKey: ["group-active-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
     },
@@ -190,6 +206,8 @@ function StudentsPage() {
       setTarget(null);
       setPwd("");
       qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["students-counts"] });
+      qc.invalidateQueries({ queryKey: ["group-active-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
     },
@@ -226,6 +244,11 @@ function StudentsPage() {
           <h1 className="truncate text-2xl font-extrabold">الطلاب</h1>
           <p className="text-sm text-muted-foreground">
             {students.length} طالب — إجمالي الاشتراكات {EGP(totals)}
+          </p>
+          <p className="mt-1 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-md bg-muted px-2 py-0.5">الإجمالي {counts?.total ?? 0}</span>
+            <span className="rounded-md bg-success/15 px-2 py-0.5 text-success-foreground">المستمر {counts?.active ?? 0}</span>
+            <span className="rounded-md bg-destructive/15 px-2 py-0.5">المتوقف {counts?.stopped ?? 0}</span>
           </p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setForm(empty); }}>

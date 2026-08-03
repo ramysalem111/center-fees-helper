@@ -75,11 +75,28 @@ function GroupsPage() {
       const { data, error } = await supabase
         .from("groups")
         .select(
-          "*, academic_years(name), locations(name), students(count), billing_systems(name, kind), collection_types(name, code), group_statuses(name, code)",
+          "*, academic_years(name), locations(name), billing_systems(name, kind), collection_types(name, code), group_statuses(name, code)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  /** عدد الطلاب المستمرين فقط لكل مجموعة (الموقوف/المنسحب لا يُحسب) */
+  const { data: activeCounts = {} } = useQuery({
+    queryKey: ["group-active-counts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("group_id")
+        .eq("status", "active")
+        .eq("archived", false);
+      const map: Record<string, number> = {};
+      for (const s of (data ?? []) as any[]) {
+        if (s.group_id) map[s.group_id] = (map[s.group_id] ?? 0) + 1;
+      }
+      return map;
     },
   });
 
@@ -291,7 +308,7 @@ function GroupsPage() {
                 <Badge variant="outline">{g.billing_systems?.name ?? (g.billing_system === "monthly" ? "شهري" : "كل 8 حصص")}</Badge>
                 <Badge variant="outline">{g.collection_types?.name ?? (g.billing_type === "prepaid" ? "مقدم" : "مؤخر")}</Badge>
                 <Badge variant="outline">{EGP(g.fee)}</Badge>
-                <Badge variant="secondary">{g.students?.[0]?.count ?? 0} طالب</Badge>
+                <Badge variant="secondary">{(activeCounts as Record<string, number>)[g.id] ?? 0} طالب</Badge>
                 <Badge variant={g.is_active ? "default" : "outline"}>
                   {g.is_active ? `مُفعَّلة من ${monthAr(g.activated_at)}` : "غير مُفعَّلة"}
                 </Badge>
