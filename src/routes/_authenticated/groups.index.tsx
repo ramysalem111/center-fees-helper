@@ -308,7 +308,7 @@ function GroupsPage() {
                 <Badge variant="outline">{g.billing_systems?.name ?? (g.billing_system === "monthly" ? "شهري" : "كل 8 حصص")}</Badge>
                 <Badge variant="outline">{g.collection_types?.name ?? (g.billing_type === "prepaid" ? "مقدم" : "مؤخر")}</Badge>
                 <Badge variant="outline">{EGP(g.fee)}</Badge>
-                <Badge variant="secondary">{g.students?.[0]?.count ?? 0} طالب</Badge>
+                <Badge variant="secondary">{(activeCounts as Record<string, number>)[g.id] ?? 0} طالب</Badge>
                 <Badge variant={g.is_active ? "default" : "outline"}>
                   {g.is_active ? `مُفعَّلة من ${monthAr(g.activated_at)}` : "غير مُفعَّلة"}
                 </Badge>
