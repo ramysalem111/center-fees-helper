@@ -192,9 +192,21 @@ export async function syncStudentDues(studentId: string) {
       .eq("id", d.id);
   }
 
-  if (!g?.is_active) return;
+  // أقدم استحقاق سابق للطالب: الطالب المنقول يظل مستحقاً من نفس بدايته القديمة
+  const { data: allDues } = await supabase
+    .from("dues")
+    .select("period_label")
+    .eq("student_id", studentId)
+    .order("period_label", { ascending: true })
+    .limit(1);
+  const earliest = allDues?.[0]?.period_label as string | undefined;
 
-  const labels = studentDueLabels(s.created_at, g.activated_at ?? new Date().toISOString().slice(0, 7));
+  if (!g?.is_active && !earliest) return;
+
+  let start = studentStartMonth(s.created_at, g?.activated_at ?? new Date().toISOString().slice(0, 7));
+  if (earliest && (!start || earliest < start)) start = earliest;
+
+  const labels = monthsFrom(start);
   if (!labels.length) return;
 
   const { data: existing } = await supabase
