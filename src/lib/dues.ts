@@ -175,15 +175,22 @@ export async function syncStudentDues(studentId: string) {
     .eq("id", s.group_id as string)
     .maybeSingle();
 
-  // استحقاقات غير مدفوعة تخص مجموعات قديمة => تُحذف
-  const { data: stale } = await supabase
+  // نقل الطالب لمجموعة أخرى: تنتقل استحقاقاته (غير المسددة كاملاً) للمجموعة الجديدة
+  const { data: others } = await supabase
     .from("dues")
-    .select("id, group_id, paid_amount")
+    .select("id, group_id, amount, paid_amount, status")
     .eq("student_id", studentId)
-    .lte("paid_amount", 0)
-    .neq("status", "exempt");
-  const staleIds = (stale ?? []).filter((d) => d.group_id && d.group_id !== s.group_id).map((d) => d.id);
-  if (staleIds.length) await supabase.from("dues").delete().in("id", staleIds);
+    .neq("group_id", s.group_id as string);
+  for (const d of others ?? []) {
+    if (d.status === "paid") continue; // سجل مالي منتهي يبقى على مجموعته
+    await supabase
+      .from("dues")
+      .update({
+        group_id: s.group_id,
+        amount: Number(d.paid_amount ?? 0) > 0 ? Number(d.amount ?? 0) : Number(s.final_amount ?? 0),
+      })
+      .eq("id", d.id);
+  }
 
   if (!g?.is_active) return;
 
