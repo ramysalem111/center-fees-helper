@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BILLING_SYSTEM, DUE_STATUS, EGP, dateAr, todayISO } from "@/lib/format";
 import { monthAr, monthRange } from "@/lib/dues";
+import { StudentReportDialog } from "@/components/student-report";
 
 export const Route = createFileRoute("/_authenticated/groups/$groupId")({
   head: () => ({
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/groups/$groupId")({
 function GroupScreen() {
   const { groupId } = Route.useParams();
   const [month, setMonth] = useState<string>(todayISO().slice(0, 7));
+  const [reportId, setReportId] = useState<string | null>(null);
 
   const { data: group } = useQuery({
     queryKey: ["group", groupId],
@@ -154,7 +156,11 @@ function GroupScreen() {
                 return (
                   <TableRow key={s.id}>
                     <TableCell>#{s.code}</TableCell>
-                    <TableCell className="font-medium">{s.full_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <button type="button" className="text-primary hover:underline" onClick={() => setReportId(s.id)}>
+                        {s.full_name}
+                      </button>
+                    </TableCell>
                     <TableCell>{EGP(s.final_amount)}</TableCell>
                     <TableCell>
                       {due ? (
@@ -188,6 +194,8 @@ function GroupScreen() {
           </Table>
         </CardContent>
       </Card>
+
+      <StudentReportDialog studentId={reportId} onClose={() => setReportId(null)} />
     </div>
   );
 }

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EGP, STUDENT_STATUS, waLink } from "@/lib/format";
+import { StudentReportDialog } from "@/components/student-report";
 
 export const Route = createFileRoute("/_authenticated/students")({
   head: () => ({
@@ -89,6 +90,7 @@ function StudentsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<StudentForm>(empty);
   const [target, setTarget] = useState<any | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
   const [pwd, setPwd] = useState("");
   const qc = useQueryClient();
 
@@ -386,7 +388,15 @@ function StudentsPage() {
               {students.map((s: any) => (
                 <TableRow key={s.id}>
                   <TableCell>#{s.code}</TableCell>
-                  <TableCell className="font-medium">{s.full_name}</TableCell>
+                  <TableCell className="font-medium">
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => setReportId(s.id)}
+                    >
+                      {s.full_name}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     {s.group_id ? (
                       <Link to="/groups/$groupId" params={{ groupId: s.group_id }} className="text-primary hover:underline">
@@ -429,6 +439,8 @@ function StudentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <StudentReportDialog studentId={reportId} onClose={() => setReportId(null)} />
 
       <Dialog open={!!target} onOpenChange={(o) => { if (!o) { setTarget(null); setPwd(""); } }}>
         <DialogContent className="sm:max-w-md">
