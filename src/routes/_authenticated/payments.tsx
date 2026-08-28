@@ -296,6 +296,7 @@ function PaymentsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>المجموعة</TableHead>
+                  <TableHead>الطلاب</TableHead>
                   <TableHead>المطلوب</TableHead>
                   <TableHead>المدفوع</TableHead>
                   <TableHead>المتبقي</TableHead>
@@ -303,11 +304,15 @@ function PaymentsPage() {
               </TableHeader>
               <TableBody>
                 {groupSummary.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">لا توجد بيانات</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">لا توجد بيانات</TableCell></TableRow>
                 )}
                 {groupSummary.map((r) => (
-                  <TableRow key={r.name}>
-                    <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">
+                      {r.name}
+                      {r.note && <div className="text-xs font-normal text-muted-foreground">{r.note}</div>}
+                    </TableCell>
+                    <TableCell>{r.students || "—"}</TableCell>
                     <TableCell>{EGP(r.required)}</TableCell>
                     <TableCell className="text-success">{EGP(r.paid)}</TableCell>
                     <TableCell className={r.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(r.remaining)}</TableCell>
@@ -316,6 +321,7 @@ function PaymentsPage() {
                 {groupSummary.length > 0 && (
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell>الإجمالي</TableCell>
+                    <TableCell>{groupSummary.reduce((a, r) => a + r.students, 0)}</TableCell>
                     <TableCell>{EGP(sumTotals.required)}</TableCell>
                     <TableCell>{EGP(sumTotals.paid)}</TableCell>
                     <TableCell>{EGP(sumTotals.remaining)}</TableCell>
