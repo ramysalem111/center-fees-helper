@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BanIcon, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths } from "@/lib/dues";
+import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths, studentAmount } from "@/lib/dues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -238,7 +238,7 @@ function PaymentsPage() {
             </SelectContent>
           </Select>
           <Button variant="outline" className="gap-2" onClick={() => genMonthly.mutate()} disabled={genMonthly.isPending}>
-            <RefreshCw className="size-4" /> توليد استحقاقات الشهر
+            <RefreshCw className="size-4" /> تحديث الاستحقاقات
           </Button>
         </CardContent>
       </Card>
@@ -763,7 +763,7 @@ function NewPaymentForm({
   const alreadyPaid = selectedDue?.status === "paid";
   const base = selectedDue
     ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
-    : Number(selectedStudent?.final_amount ?? 0);
+    : studentAmount(selectedStudent);
   const net = fullExempt ? 0 : Math.max(base - Number(discount || 0), 0);
 
   const save = useMutation({
