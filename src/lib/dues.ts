@@ -104,7 +104,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
 
   const { data: students } = await supabase
     .from("students")
-    .select("id, final_amount, created_at")
+    .select("id, final_amount, fee, discount, exemption, created_at")
     .eq("group_id", groupId)
     .eq("status", "active")
     .eq("archived", false);
