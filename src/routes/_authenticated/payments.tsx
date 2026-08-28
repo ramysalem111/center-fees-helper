@@ -164,10 +164,12 @@ function PaymentsPage() {
         .eq("students.archived", false);
       if (sumMonth !== "all") q = q.eq("period_label", sumMonth);
       const { data } = await q;
-      const map = new Map<string, { name: string; required: number; paid: number; remaining: number }>();
+
+      type Row = { id: string; name: string; students: number; required: number; paid: number; remaining: number; note?: string };
+      const map = new Map<string, Row>();
       for (const d of (data ?? []) as any[]) {
         const key = d.group_id ?? "none";
-        const row = map.get(key) ?? { name: d.groups?.name ?? "بدون مجموعة", required: 0, paid: 0, remaining: 0 };
+        const row = map.get(key) ?? { id: key, name: d.groups?.name ?? "بدون مجموعة", students: 0, required: 0, paid: 0, remaining: 0 };
         const paid = Number(d.paid_amount ?? 0);
         row.paid += paid;
         if (d.status !== "exempt") {
@@ -175,6 +177,30 @@ function PaymentsPage() {
           row.remaining += Math.max(0, Number(d.amount ?? 0) - paid);
         }
         map.set(key, row);
+      }
+
+      // المجموعات التي لم تُفعَّل (أو لم تُولَّد استحقاقاتها) لا تظهر في المستحقات فيبدو الإجمالي ناقصاً
+      const { data: groupsData } = await supabase
+        .from("groups")
+        .select("id, name, is_active, activated_at, students(id, status, archived, final_amount, fee, discount, exemption)");
+      for (const g of (groupsData ?? []) as any[]) {
+        const actives = (g.students ?? []).filter((s: any) => s.status === "active" && !s.archived);
+        const expected = actives.reduce((sum: number, s: any) => sum + studentAmount(s), 0);
+        const row = map.get(g.id);
+        if (row) {
+          row.students = actives.length;
+          continue;
+        }
+        if (!actives.length) continue;
+        map.set(g.id, {
+          id: g.id,
+          name: g.name,
+          students: actives.length,
+          required: 0,
+          paid: 0,
+          remaining: 0,
+          note: `${g.is_active && g.activated_at ? "لم تُولَّد استحقاقات هذا الشهر" : "المجموعة غير مُفعَّلة"} — المتوقع ${expected}`,
+        });
       }
       return [...map.values()].sort((a, b) => b.remaining - a.remaining);
     },
