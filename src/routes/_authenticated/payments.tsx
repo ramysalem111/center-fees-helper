@@ -237,9 +237,19 @@ function PaymentsPage() {
               {(lookups?.groups ?? []).map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2" onClick={() => genMonthly.mutate()} disabled={genMonthly.isPending}>
+          <Button
+            variant="outline"
+            className="gap-2"
+            title="ينشئ استحقاقات الأشهر الناقصة للطلاب النشطين (حتى الشهر القادم للدفع المقدم) ويصحح قيمة أي استحقاق بصفر"
+            onClick={() => genMonthly.mutate()}
+            disabled={genMonthly.isPending}
+          >
             <RefreshCw className="size-4" /> تحديث الاستحقاقات
           </Button>
+          <p className="w-full text-xs text-muted-foreground">
+            زر «تحديث الاستحقاقات» ينشئ الاستحقاقات الشهرية الناقصة للطلاب النشطين حتى الشهر القادم (لتسجيل الدفع المقدم).
+          </p>
+
         </CardContent>
       </Card>
 
