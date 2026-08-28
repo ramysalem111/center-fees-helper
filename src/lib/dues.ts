@@ -125,18 +125,17 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
       const prev = byKey.get(`${s.id}|${label}`);
       if (prev) {
         // استحقاق موجود لنفس الشهر: لو مدفوع لا نكرره، ولو غير مدفوع ننقله للمجموعة الجديدة
-        if (Number(prev.paid_amount ?? 0) <= 0 && prev.group_id !== groupId) {
-          await supabase
-            .from("dues")
-            .update({ group_id: groupId, amount: Number(s.final_amount ?? 0) })
-            .eq("id", prev.id);
-        }
+        const patch: any = {};
+        if (Number(prev.paid_amount ?? 0) <= 0 && prev.group_id !== groupId) patch.group_id = groupId;
+        // تصحيح استحقاق بقيمة صفر (اشتراك لم يكن محسوباً وقت الإنشاء)
+        if (Number((prev as any).amount ?? 0) <= 0 && studentAmount(s) > 0) patch.amount = studentAmount(s);
+        if (Object.keys(patch).length) await supabase.from("dues").update(patch).eq("id", prev.id);
         continue;
       }
       rows.push({
         student_id: s.id,
         group_id: groupId,
-        amount: Number(s.final_amount ?? 0),
+        amount: studentAmount(s),
         period_label: label,
         due_date: `${label}-01`,
       });
