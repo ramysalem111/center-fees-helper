@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BanIcon, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths } from "@/lib/dues";
+import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths, studentAmount } from "@/lib/dues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -237,9 +237,19 @@ function PaymentsPage() {
               {(lookups?.groups ?? []).map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2" onClick={() => genMonthly.mutate()} disabled={genMonthly.isPending}>
-            <RefreshCw className="size-4" /> توليد استحقاقات الشهر
+          <Button
+            variant="outline"
+            className="gap-2"
+            title="ينشئ استحقاقات الأشهر الناقصة للطلاب النشطين (حتى الشهر القادم للدفع المقدم) ويصحح قيمة أي استحقاق بصفر"
+            onClick={() => genMonthly.mutate()}
+            disabled={genMonthly.isPending}
+          >
+            <RefreshCw className="size-4" /> تحديث الاستحقاقات
           </Button>
+          <p className="w-full text-xs text-muted-foreground">
+            زر «تحديث الاستحقاقات» ينشئ الاستحقاقات الشهرية الناقصة للطلاب النشطين حتى الشهر القادم (لتسجيل الدفع المقدم).
+          </p>
+
         </CardContent>
       </Card>
 
@@ -763,7 +773,7 @@ function NewPaymentForm({
   const alreadyPaid = selectedDue?.status === "paid";
   const base = selectedDue
     ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
-    : Number(selectedStudent?.final_amount ?? 0);
+    : studentAmount(selectedStudent);
   const net = fullExempt ? 0 : Math.max(base - Number(discount || 0), 0);
 
   const save = useMutation({

@@ -1,20 +1,35 @@
 import { supabase } from "@/integrations/supabase/client";
 
-/** يرجع قائمة الأشهر (YYYY-MM) من شهر البداية حتى الشهر الحالي */
+/** يرجع قائمة الأشهر (YYYY-MM) من شهر البداية حتى الشهر التالي (للسماح بالدفع المقدم) */
 export function monthsFrom(startLabel: string): string[] {
   const [sy, sm] = (startLabel ?? "").split("-").map(Number);
   if (!sy || !sm || sy < 2000) return [];
   const now = new Date();
+  // الحد الأقصى = الشهر التالي للشهر الحالي حتى يمكن تحصيل دفع مقدم
+  const limit = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const out: string[] = [];
   let y = sy;
   let m = sm - 1;
-  while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+  while (y < limit.getFullYear() || (y === limit.getFullYear() && m <= limit.getMonth())) {
     out.push(`${y}-${String(m + 1).padStart(2, "0")}`);
     m += 1;
     if (m > 11) { m = 0; y += 1; }
   }
   return out;
 }
+
+/** قيمة الاشتراك الفعلية للطالب (مع احتياطي الحساب لو final_amount غير محسوب) */
+export const studentAmount = (s?: {
+  final_amount?: number | null;
+  fee?: number | null;
+  discount?: number | null;
+  exemption?: number | null;
+} | null) => {
+  const final = Number(s?.final_amount ?? 0);
+  if (final > 0) return final;
+  return Math.max(Number(s?.fee ?? 0) - Number(s?.discount ?? 0) - Number(s?.exemption ?? 0), 0);
+};
+
 
 export const monthAr = (label: string) => {
   const [y, m] = label.split("-");
@@ -89,7 +104,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
 
   const { data: students } = await supabase
     .from("students")
-    .select("id, final_amount, created_at")
+    .select("id, final_amount, fee, discount, exemption, created_at")
     .eq("group_id", groupId)
     .eq("status", "active")
     .eq("archived", false);
@@ -97,7 +112,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
 
   const { data: existing } = await supabase
     .from("dues")
-    .select("id, student_id, period_label, group_id, paid_amount")
+    .select("id, student_id, period_label, group_id, paid_amount, amount")
     .in("student_id", students.map((s) => s.id))
     .in("period_label", labels);
   const byKey = new Map((existing ?? []).map((d) => [`${d.student_id}|${d.period_label}`, d]));
@@ -110,18 +125,17 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
       const prev = byKey.get(`${s.id}|${label}`);
       if (prev) {
         // استحقاق موجود لنفس الشهر: لو مدفوع لا نكرره، ولو غير مدفوع ننقله للمجموعة الجديدة
-        if (Number(prev.paid_amount ?? 0) <= 0 && prev.group_id !== groupId) {
-          await supabase
-            .from("dues")
-            .update({ group_id: groupId, amount: Number(s.final_amount ?? 0) })
-            .eq("id", prev.id);
-        }
+        const patch: any = {};
+        if (Number(prev.paid_amount ?? 0) <= 0 && prev.group_id !== groupId) patch.group_id = groupId;
+        // تصحيح استحقاق بقيمة صفر (اشتراك لم يكن محسوباً وقت الإنشاء)
+        if (Number((prev as any).amount ?? 0) <= 0 && studentAmount(s) > 0) patch.amount = studentAmount(s);
+        if (Object.keys(patch).length) await supabase.from("dues").update(patch).eq("id", prev.id);
         continue;
       }
       rows.push({
         student_id: s.id,
         group_id: groupId,
-        amount: Number(s.final_amount ?? 0),
+        amount: studentAmount(s),
         period_label: label,
         due_date: `${label}-01`,
       });
@@ -158,7 +172,7 @@ export async function removeUnpaidDues(studentId: string, groupId?: string | nul
 export async function syncStudentDues(studentId: string) {
   const { data: s } = await supabase
     .from("students")
-    .select("id, status, archived, group_id, final_amount, created_at")
+    .select("id, status, archived, group_id, final_amount, fee, discount, exemption, created_at")
     .eq("id", studentId)
     .maybeSingle();
   if (!s) return;
@@ -187,7 +201,7 @@ export async function syncStudentDues(studentId: string) {
       .from("dues")
       .update({
         group_id: s.group_id,
-        amount: Number(d.paid_amount ?? 0) > 0 ? Number(d.amount ?? 0) : Number(s.final_amount ?? 0),
+        amount: Number(d.paid_amount ?? 0) > 0 ? Number(d.amount ?? 0) : studentAmount(s),
       })
       .eq("id", d.id);
   }
@@ -221,7 +235,7 @@ export async function syncStudentDues(studentId: string) {
     .map((l) => ({
       student_id: studentId,
       group_id: s.group_id,
-      amount: Number(s.final_amount ?? 0),
+      amount: studentAmount(s),
       period_label: l,
       due_date: `${l}-01`,
     }));
@@ -236,20 +250,33 @@ export async function ensureDueForMonth(studentId: string, groupId: string | nul
     .eq("student_id", studentId)
     .eq("period_label", label)
     .maybeSingle();
-  if (found) return found;
-
   const { data: student } = await supabase
     .from("students")
-    .select("final_amount, group_id")
+    .select("final_amount, fee, discount, exemption, group_id")
     .eq("id", studentId)
     .maybeSingle();
+
+  // استحقاق موجود لكن بقيمة صفر (اشتراك لم يكن محسوباً) => نصححه
+  if (found) {
+    const value = studentAmount(student);
+    if (Number((found as any).amount ?? 0) <= 0 && value > 0) {
+      const { data: fixed } = await supabase
+        .from("dues")
+        .update({ amount: value })
+        .eq("id", (found as any).id)
+        .select("*")
+        .single();
+      return fixed ?? found;
+    }
+    return found;
+  }
 
   const { data, error } = await supabase
     .from("dues")
     .insert({
       student_id: studentId,
       group_id: groupId ?? student?.group_id ?? null,
-      amount: Number(student?.final_amount ?? 0),
+      amount: studentAmount(student),
       period_label: label,
       due_date: `${label}-01`,
     })
