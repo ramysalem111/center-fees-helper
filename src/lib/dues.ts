@@ -1,20 +1,35 @@
 import { supabase } from "@/integrations/supabase/client";
 
-/** يرجع قائمة الأشهر (YYYY-MM) من شهر البداية حتى الشهر الحالي */
+/** يرجع قائمة الأشهر (YYYY-MM) من شهر البداية حتى الشهر التالي (للسماح بالدفع المقدم) */
 export function monthsFrom(startLabel: string): string[] {
   const [sy, sm] = (startLabel ?? "").split("-").map(Number);
   if (!sy || !sm || sy < 2000) return [];
   const now = new Date();
+  // الحد الأقصى = الشهر التالي للشهر الحالي حتى يمكن تحصيل دفع مقدم
+  const limit = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const out: string[] = [];
   let y = sy;
   let m = sm - 1;
-  while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+  while (y < limit.getFullYear() || (y === limit.getFullYear() && m <= limit.getMonth())) {
     out.push(`${y}-${String(m + 1).padStart(2, "0")}`);
     m += 1;
     if (m > 11) { m = 0; y += 1; }
   }
   return out;
 }
+
+/** قيمة الاشتراك الفعلية للطالب (مع احتياطي الحساب لو final_amount غير محسوب) */
+export const studentAmount = (s?: {
+  final_amount?: number | null;
+  fee?: number | null;
+  discount?: number | null;
+  exemption?: number | null;
+} | null) => {
+  const final = Number(s?.final_amount ?? 0);
+  if (final > 0) return final;
+  return Math.max(Number(s?.fee ?? 0) - Number(s?.discount ?? 0) - Number(s?.exemption ?? 0), 0);
+};
+
 
 export const monthAr = (label: string) => {
   const [y, m] = label.split("-");
