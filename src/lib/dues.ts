@@ -172,7 +172,7 @@ export async function removeUnpaidDues(studentId: string, groupId?: string | nul
 export async function syncStudentDues(studentId: string) {
   const { data: s } = await supabase
     .from("students")
-    .select("id, status, archived, group_id, final_amount, created_at")
+    .select("id, status, archived, group_id, final_amount, fee, discount, exemption, created_at")
     .eq("id", studentId)
     .maybeSingle();
   if (!s) return;
@@ -201,7 +201,7 @@ export async function syncStudentDues(studentId: string) {
       .from("dues")
       .update({
         group_id: s.group_id,
-        amount: Number(d.paid_amount ?? 0) > 0 ? Number(d.amount ?? 0) : Number(s.final_amount ?? 0),
+        amount: Number(d.paid_amount ?? 0) > 0 ? Number(d.amount ?? 0) : studentAmount(s),
       })
       .eq("id", d.id);
   }
@@ -235,7 +235,7 @@ export async function syncStudentDues(studentId: string) {
     .map((l) => ({
       student_id: studentId,
       group_id: s.group_id,
-      amount: Number(s.final_amount ?? 0),
+      amount: studentAmount(s),
       period_label: l,
       due_date: `${l}-01`,
     }));
@@ -250,20 +250,33 @@ export async function ensureDueForMonth(studentId: string, groupId: string | nul
     .eq("student_id", studentId)
     .eq("period_label", label)
     .maybeSingle();
-  if (found) return found;
-
   const { data: student } = await supabase
     .from("students")
-    .select("final_amount, group_id")
+    .select("final_amount, fee, discount, exemption, group_id")
     .eq("id", studentId)
     .maybeSingle();
+
+  // استحقاق موجود لكن بقيمة صفر (اشتراك لم يكن محسوباً) => نصححه
+  if (found) {
+    const value = studentAmount(student);
+    if (Number((found as any).amount ?? 0) <= 0 && value > 0) {
+      const { data: fixed } = await supabase
+        .from("dues")
+        .update({ amount: value })
+        .eq("id", (found as any).id)
+        .select("*")
+        .single();
+      return fixed ?? found;
+    }
+    return found;
+  }
 
   const { data, error } = await supabase
     .from("dues")
     .insert({
       student_id: studentId,
       group_id: groupId ?? student?.group_id ?? null,
-      amount: Number(student?.final_amount ?? 0),
+      amount: studentAmount(student),
       period_label: label,
       due_date: `${label}-01`,
     })
