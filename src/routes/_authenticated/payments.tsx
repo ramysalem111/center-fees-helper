@@ -164,10 +164,12 @@ function PaymentsPage() {
         .eq("students.archived", false);
       if (sumMonth !== "all") q = q.eq("period_label", sumMonth);
       const { data } = await q;
-      const map = new Map<string, { name: string; required: number; paid: number; remaining: number }>();
+
+      type Row = { id: string; name: string; students: number; required: number; paid: number; remaining: number; note?: string };
+      const map = new Map<string, Row>();
       for (const d of (data ?? []) as any[]) {
         const key = d.group_id ?? "none";
-        const row = map.get(key) ?? { name: d.groups?.name ?? "بدون مجموعة", required: 0, paid: 0, remaining: 0 };
+        const row = map.get(key) ?? { id: key, name: d.groups?.name ?? "بدون مجموعة", students: 0, required: 0, paid: 0, remaining: 0 };
         const paid = Number(d.paid_amount ?? 0);
         row.paid += paid;
         if (d.status !== "exempt") {
@@ -175,6 +177,30 @@ function PaymentsPage() {
           row.remaining += Math.max(0, Number(d.amount ?? 0) - paid);
         }
         map.set(key, row);
+      }
+
+      // المجموعات التي لم تُفعَّل (أو لم تُولَّد استحقاقاتها) لا تظهر في المستحقات فيبدو الإجمالي ناقصاً
+      const { data: groupsData } = await supabase
+        .from("groups")
+        .select("id, name, is_active, activated_at, students(id, status, archived, final_amount, fee, discount, exemption)");
+      for (const g of (groupsData ?? []) as any[]) {
+        const actives = (g.students ?? []).filter((s: any) => s.status === "active" && !s.archived);
+        const expected = actives.reduce((sum: number, s: any) => sum + studentAmount(s), 0);
+        const row = map.get(g.id);
+        if (row) {
+          row.students = actives.length;
+          continue;
+        }
+        if (!actives.length) continue;
+        map.set(g.id, {
+          id: g.id,
+          name: g.name,
+          students: actives.length,
+          required: 0,
+          paid: 0,
+          remaining: 0,
+          note: `${g.is_active && g.activated_at ? "لم تُولَّد استحقاقات هذا الشهر" : "المجموعة غير مُفعَّلة"} — المتوقع ${expected}`,
+        });
       }
       return [...map.values()].sort((a, b) => b.remaining - a.remaining);
     },
@@ -270,6 +296,7 @@ function PaymentsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>المجموعة</TableHead>
+                  <TableHead>الطلاب</TableHead>
                   <TableHead>المطلوب</TableHead>
                   <TableHead>المدفوع</TableHead>
                   <TableHead>المتبقي</TableHead>
@@ -277,11 +304,15 @@ function PaymentsPage() {
               </TableHeader>
               <TableBody>
                 {groupSummary.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">لا توجد بيانات</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">لا توجد بيانات</TableCell></TableRow>
                 )}
                 {groupSummary.map((r) => (
-                  <TableRow key={r.name}>
-                    <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">
+                      {r.name}
+                      {r.note && <div className="text-xs font-normal text-muted-foreground">{r.note}</div>}
+                    </TableCell>
+                    <TableCell>{r.students || "—"}</TableCell>
                     <TableCell>{EGP(r.required)}</TableCell>
                     <TableCell className="text-success">{EGP(r.paid)}</TableCell>
                     <TableCell className={r.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(r.remaining)}</TableCell>
@@ -290,6 +321,7 @@ function PaymentsPage() {
                 {groupSummary.length > 0 && (
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell>الإجمالي</TableCell>
+                    <TableCell>{groupSummary.reduce((a, r) => a + r.students, 0)}</TableCell>
                     <TableCell>{EGP(sumTotals.required)}</TableCell>
                     <TableCell>{EGP(sumTotals.paid)}</TableCell>
                     <TableCell>{EGP(sumTotals.remaining)}</TableCell>
