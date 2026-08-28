@@ -112,7 +112,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
 
   const { data: existing } = await supabase
     .from("dues")
-    .select("id, student_id, period_label, group_id, paid_amount")
+    .select("id, student_id, period_label, group_id, paid_amount, amount")
     .in("student_id", students.map((s) => s.id))
     .in("period_label", labels);
   const byKey = new Map((existing ?? []).map((d) => [`${d.student_id}|${d.period_label}`, d]));
