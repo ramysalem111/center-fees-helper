@@ -693,6 +693,7 @@ export type Database = {
           guardian_phone: string | null
           id: string
           notes: string | null
+          permanent_exempt: boolean
           phone: string | null
           status: Database["public"]["Enums"]["student_status"]
           updated_at: string
@@ -712,6 +713,7 @@ export type Database = {
           guardian_phone?: string | null
           id?: string
           notes?: string | null
+          permanent_exempt?: boolean
           phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
           updated_at?: string
@@ -731,6 +733,7 @@ export type Database = {
           guardian_phone?: string | null
           id?: string
           notes?: string | null
+          permanent_exempt?: boolean
           phone?: string | null
           status?: Database["public"]["Enums"]["student_status"]
           updated_at?: string

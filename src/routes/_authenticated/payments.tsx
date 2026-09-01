@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DUE_STATUS, EGP, dateAr, monthLabel, todayISO, waLink } from "@/lib/format";
+import { StudentEditDialog } from "@/components/student-edit-dialog";
 
 export const Route = createFileRoute("/_authenticated/payments")({
   head: () => ({
@@ -40,6 +41,7 @@ function PaymentsPage() {
   const [methodId, setMethodId] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [sumMonth, setSumMonth] = useState(monthLabel());
+  const [editStudentId, setEditStudentId] = useState<string | null>(null);
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
@@ -392,7 +394,15 @@ function PaymentsPage() {
               )}
               {dues.map((d: any) => (
                 <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.students?.full_name}</TableCell>
+                  <TableCell className="font-medium">
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => setEditStudentId(d.student_id)}
+                    >
+                      {d.students?.full_name}
+                    </button>
+                  </TableCell>
                   <TableCell>{d.groups?.name ?? "—"}</TableCell>
                   <TableCell>{monthAr(d.period_label)}</TableCell>
                   <TableCell>{EGP(d.amount)}</TableCell>
@@ -480,6 +490,8 @@ function PaymentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <StudentEditDialog studentId={editStudentId} onClose={() => setEditStudentId(null)} />
 
       <Dialog open={!!payDue} onOpenChange={(o) => { if (!o) { setPayDue(null); setPayPeriod(""); } }}>
         <DialogContent className="sm:max-w-md">

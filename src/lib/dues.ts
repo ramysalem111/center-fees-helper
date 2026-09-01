@@ -104,7 +104,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
 
   const { data: students } = await supabase
     .from("students")
-    .select("id, final_amount, fee, discount, exemption, created_at")
+    .select("id, final_amount, fee, discount, exemption, created_at, permanent_exempt")
     .eq("group_id", groupId)
     .eq("status", "active")
     .eq("archived", false);
@@ -138,6 +138,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
         amount: studentAmount(s),
         period_label: label,
         due_date: `${label}-01`,
+        ...((s as any).permanent_exempt ? { status: "exempt" as const } : {}),
       });
     }
   }
@@ -172,7 +173,7 @@ export async function removeUnpaidDues(studentId: string, groupId?: string | nul
 export async function syncStudentDues(studentId: string) {
   const { data: s } = await supabase
     .from("students")
-    .select("id, status, archived, group_id, final_amount, fee, discount, exemption, created_at")
+    .select("id, status, archived, group_id, final_amount, fee, discount, exemption, created_at, permanent_exempt")
     .eq("id", studentId)
     .maybeSingle();
   if (!s) return;
@@ -238,6 +239,7 @@ export async function syncStudentDues(studentId: string) {
       amount: studentAmount(s),
       period_label: l,
       due_date: `${l}-01`,
+      ...((s as any).permanent_exempt ? { status: "exempt" as const } : {}),
     }));
   if (rows.length) await supabase.from("dues").insert(rows);
 }
@@ -291,4 +293,33 @@ export function monthRange(label: string) {
   const [y, m] = label.split("-").map(Number);
   const last = new Date(y, m, 0).getDate();
   return { start: `${label}-01`, end: `${label}-${String(last).padStart(2, "0")}` };
+}
+
+/**
+ * تطبيق/إلغاء الإعفاء الدائم للطالب:
+ * - تطبيق: كل الاستحقاقات من الشهر الحالي وما بعده (غير المدفوعة) تصبح "إعفاء من الشهر".
+ * - إلغاء: الاستحقاقات المعفاة من الشهر الحالي وما بعده فقط تعود "غير مدفوع" (الشهور السابقة لا تتأثر).
+ */
+export async function applyPermanentExempt(studentId: string, on: boolean) {
+  const now = new Date();
+  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  if (on) {
+    const { error } = await supabase
+      .from("dues")
+      .update({ status: "exempt" })
+      .eq("student_id", studentId)
+      .gte("period_label", current)
+      .lte("paid_amount", 0);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from("dues")
+    .update({ status: "unpaid" })
+    .eq("student_id", studentId)
+    .gte("period_label", current)
+    .eq("status", "exempt");
+  if (error) throw error;
 }
