@@ -53,7 +53,7 @@ function PaymentsPage() {
   });
 
   const { data: dues = [], isLoading } = useQuery({
-    queryKey: ["dues", status, groupId],
+    queryKey: ["dues", status, groupId, sumMonth],
     queryFn: async () => {
       let q = supabase
         .from("dues")
@@ -64,6 +64,7 @@ function PaymentsPage() {
         .limit(500);
       if (status !== "all") q = q.eq("status", status as "unpaid" | "partial" | "paid" | "exempt");
       if (groupId !== "all") q = q.eq("group_id", groupId);
+      q = q.eq("period_label", sumMonth);
       const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
