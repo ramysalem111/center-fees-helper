@@ -292,3 +292,32 @@ export function monthRange(label: string) {
   const last = new Date(y, m, 0).getDate();
   return { start: `${label}-01`, end: `${label}-${String(last).padStart(2, "0")}` };
 }
+
+/**
+ * تطبيق/إلغاء الإعفاء الدائم للطالب:
+ * - تطبيق: كل الاستحقاقات من الشهر الحالي وما بعده (غير المدفوعة) تصبح "إعفاء من الشهر".
+ * - إلغاء: الاستحقاقات المعفاة من الشهر الحالي وما بعده فقط تعود "غير مدفوع" (الشهور السابقة لا تتأثر).
+ */
+export async function applyPermanentExempt(studentId: string, on: boolean) {
+  const now = new Date();
+  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  if (on) {
+    const { error } = await supabase
+      .from("dues")
+      .update({ status: "exempt" })
+      .eq("student_id", studentId)
+      .gte("period_label", current)
+      .lte("paid_amount", 0);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from("dues")
+    .update({ status: "unpaid" })
+    .eq("student_id", studentId)
+    .gte("period_label", current)
+    .eq("status", "exempt");
+  if (error) throw error;
+}
