@@ -349,22 +349,23 @@ function PaymentsPage() {
                     <TableCell className={r.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(r.remaining)}</TableCell>
                   </TableRow>
                 ))}
-                {groupSummary.length > 0 && (
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>الإجمالي</TableCell>
-                    <TableCell>{groupSummary.reduce((a, r) => a + r.students, 0)}</TableCell>
-                    <TableCell>{EGP(sumTotals.required)}</TableCell>
-                    <TableCell>{EGP(sumTotals.paid)}</TableCell>
-                    <TableCell>{EGP(sumTotals.remaining)}</TableCell>
-                  </TableRow>
-                )}
                 <TableRow className="bg-muted/30">
                   <TableCell className="font-bold">مرحّل من شهور سابقة</TableCell>
                   <TableCell>{carry.students || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell>{EGP(carry.remaining)}</TableCell>
                   <TableCell className="text-muted-foreground">—</TableCell>
                   <TableCell className={carry.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(carry.remaining)}</TableCell>
                 </TableRow>
+                {groupSummary.length > 0 && (
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell>الإجمالي (بعد المرحّل)</TableCell>
+                    <TableCell>{groupSummary.reduce((a, r) => a + r.students, 0)}</TableCell>
+                    <TableCell>{EGP(sumTotals.required + carry.remaining)}</TableCell>
+                    <TableCell>{EGP(sumTotals.paid)}</TableCell>
+                    <TableCell>{EGP(sumTotals.remaining + carry.remaining)}</TableCell>
+                  </TableRow>
+                )}
+
               </TableBody>
             </Table>
           </div>
