@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DUE_STATUS, EGP, dateAr, todayISO, waLink } from "@/lib/format";
+import { DUE_STATUS, EGP, dateAr, monthLabel, todayISO, waLink } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/payments")({
   head: () => ({
@@ -39,7 +39,7 @@ function PaymentsPage() {
   const [amount, setAmount] = useState("");
   const [methodId, setMethodId] = useState("");
   const [newOpen, setNewOpen] = useState(false);
-  const [sumMonth, setSumMonth] = useState("all");
+  const [sumMonth, setSumMonth] = useState(monthLabel());
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
@@ -53,7 +53,7 @@ function PaymentsPage() {
   });
 
   const { data: dues = [], isLoading } = useQuery({
-    queryKey: ["dues", status, groupId],
+    queryKey: ["dues", status, groupId, sumMonth],
     queryFn: async () => {
       let q = supabase
         .from("dues")
@@ -64,6 +64,7 @@ function PaymentsPage() {
         .limit(500);
       if (status !== "all") q = q.eq("status", status as "unpaid" | "partial" | "paid" | "exempt");
       if (groupId !== "all") q = q.eq("group_id", groupId);
+      q = q.eq("period_label", sumMonth);
       const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
@@ -210,6 +211,34 @@ function PaymentsPage() {
     { required: 0, paid: 0, remaining: 0 },
   );
 
+  /** المرحّل من شهور سابقة: متبقي غير مسدد لكل الأشهر قبل الشهر المختار */
+  const { data: carry = { students: 0, remaining: 0 } } = useQuery({
+    queryKey: ["dues", "carry-over", sumMonth, groupId],
+    queryFn: async () => {
+      let q = supabase
+        .from("dues")
+        .select("student_id, amount, paid_amount, status, students!inner(status, archived)")
+        .eq("students.status", "active")
+        .eq("students.archived", false)
+        .lt("period_label", sumMonth)
+        .neq("status", "paid")
+        .neq("status", "exempt");
+      if (groupId !== "all") q = q.eq("group_id", groupId);
+      const { data } = await q;
+      const set = new Set<string>();
+      let remaining = 0;
+      for (const d of (data ?? []) as any[]) {
+        const left = Math.max(0, Number(d.amount ?? 0) - Number(d.paid_amount ?? 0));
+        if (left <= 0) continue;
+        remaining += left;
+        set.add(d.student_id);
+      }
+      return { students: set.size, remaining };
+    },
+  });
+
+
+
   const toggleExempt = useMutation({
     mutationFn: async (due: any) => {
       const next = due.status === "exempt" ? "unpaid" : "exempt";
@@ -286,7 +315,7 @@ function PaymentsPage() {
             <Select value={sumMonth} onValueChange={setSumMonth}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">كل الشهور</SelectItem>
+                
                 {nearbyMonths().map((m) => <SelectItem key={m} value={m}>{monthAr(m)}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -327,6 +356,13 @@ function PaymentsPage() {
                     <TableCell>{EGP(sumTotals.remaining)}</TableCell>
                   </TableRow>
                 )}
+                <TableRow className="bg-muted/30">
+                  <TableCell className="font-bold">مرحّل من شهور سابقة</TableCell>
+                  <TableCell>{carry.students || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell className={carry.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(carry.remaining)}</TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </div>
