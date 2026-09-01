@@ -356,6 +356,13 @@ function PaymentsPage() {
                     <TableCell>{EGP(sumTotals.remaining)}</TableCell>
                   </TableRow>
                 )}
+                <TableRow className="bg-muted/30">
+                  <TableCell className="font-bold">مرحّل من شهور سابقة</TableCell>
+                  <TableCell>{carry.students || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell className="text-muted-foreground">—</TableCell>
+                  <TableCell className={carry.remaining > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>{EGP(carry.remaining)}</TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </div>
