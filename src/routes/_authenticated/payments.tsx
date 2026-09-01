@@ -211,6 +211,34 @@ function PaymentsPage() {
     { required: 0, paid: 0, remaining: 0 },
   );
 
+  /** المرحّل من شهور سابقة: متبقي غير مسدد لكل الأشهر قبل الشهر المختار */
+  const { data: carry = { students: 0, remaining: 0 } } = useQuery({
+    queryKey: ["dues", "carry-over", sumMonth, groupId],
+    queryFn: async () => {
+      let q = supabase
+        .from("dues")
+        .select("student_id, amount, paid_amount, status, students!inner(status, archived)")
+        .eq("students.status", "active")
+        .eq("students.archived", false)
+        .lt("period_label", sumMonth)
+        .neq("status", "paid")
+        .neq("status", "exempt");
+      if (groupId !== "all") q = q.eq("group_id", groupId);
+      const { data } = await q;
+      const set = new Set<string>();
+      let remaining = 0;
+      for (const d of (data ?? []) as any[]) {
+        const left = Math.max(0, Number(d.amount ?? 0) - Number(d.paid_amount ?? 0));
+        if (left <= 0) continue;
+        remaining += left;
+        set.add(d.student_id);
+      }
+      return { students: set.size, remaining };
+    },
+  });
+
+
+
   const toggleExempt = useMutation({
     mutationFn: async (due: any) => {
       const next = due.status === "exempt" ? "unpaid" : "exempt";
