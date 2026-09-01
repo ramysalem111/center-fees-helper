@@ -315,7 +315,7 @@ function PaymentsPage() {
             <Select value={sumMonth} onValueChange={setSumMonth}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">كل الشهور</SelectItem>
+                
                 {nearbyMonths().map((m) => <SelectItem key={m} value={m}>{monthAr(m)}</SelectItem>)}
               </SelectContent>
             </Select>
