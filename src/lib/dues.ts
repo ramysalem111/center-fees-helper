@@ -104,7 +104,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
 
   const { data: students } = await supabase
     .from("students")
-    .select("id, final_amount, fee, discount, exemption, created_at")
+    .select("id, final_amount, fee, discount, exemption, created_at, permanent_exempt")
     .eq("group_id", groupId)
     .eq("status", "active")
     .eq("archived", false);
@@ -138,6 +138,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
         amount: studentAmount(s),
         period_label: label,
         due_date: `${label}-01`,
+        ...((s as any).permanent_exempt ? { status: "exempt" as const } : {}),
       });
     }
   }
@@ -172,7 +173,7 @@ export async function removeUnpaidDues(studentId: string, groupId?: string | nul
 export async function syncStudentDues(studentId: string) {
   const { data: s } = await supabase
     .from("students")
-    .select("id, status, archived, group_id, final_amount, fee, discount, exemption, created_at")
+    .select("id, status, archived, group_id, final_amount, fee, discount, exemption, created_at, permanent_exempt")
     .eq("id", studentId)
     .maybeSingle();
   if (!s) return;
@@ -238,6 +239,7 @@ export async function syncStudentDues(studentId: string) {
       amount: studentAmount(s),
       period_label: l,
       due_date: `${l}-01`,
+      ...((s as any).permanent_exempt ? { status: "exempt" as const } : {}),
     }));
   if (rows.length) await supabase.from("dues").insert(rows);
 }
