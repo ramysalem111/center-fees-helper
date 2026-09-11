@@ -520,7 +520,7 @@ function PaymentsPage() {
                       <Button
                         size="sm"
                         className="gap-1"
-                        disabled={d.status === "paid" || d.status === "exempt"}
+                        disabled={d.status === "exempt" || Number(d.paid_amount) >= Number(d.amount)}
                         onClick={() => {
                           setPayDue(d);
                           setPayPeriod(d.period_label);
