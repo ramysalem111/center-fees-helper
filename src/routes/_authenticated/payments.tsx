@@ -1020,7 +1020,7 @@ function NewPaymentForm({
 
   const selectedStudent = students.find((s: any) => s.id === studentId) as any;
   const selectedDue = studentDues.find((d: any) => d.period_label === period) as any;
-  const alreadyPaid = selectedDue?.status === "paid";
+  const alreadyPaid = !!selectedDue && Number(selectedDue.paid_amount) >= Number(selectedDue.amount);
   const base = selectedDue
     ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
     : studentAmount(selectedStudent);
