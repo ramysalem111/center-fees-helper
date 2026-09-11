@@ -133,7 +133,8 @@ function PaymentsPage() {
       if (!payDue || !value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
       const label = payPeriod || payDue.period_label;
       const target = await ensureDueForMonth(payDue.student_id, payDue.group_id ?? null, label);
-      if (target.status === "paid") throw new Error("هذا الشهر محصَّل بالكامل — اختر شهراً آخر");
+      if (Number((target as any).paid_amount ?? 0) >= Number((target as any).amount ?? 0))
+        throw new Error("هذا الشهر محصَّل بالكامل — اختر شهراً آخر");
       const { error } = await supabase.from("payments").insert({
         student_id: payDue.student_id,
         due_id: target.id,
@@ -519,7 +520,7 @@ function PaymentsPage() {
                       <Button
                         size="sm"
                         className="gap-1"
-                        disabled={d.status === "paid" || d.status === "exempt"}
+                        disabled={d.status === "exempt" || Number(d.paid_amount) >= Number(d.amount)}
                         onClick={() => {
                           setPayDue(d);
                           setPayPeriod(d.period_label);
@@ -681,7 +682,7 @@ function PaymentsPage() {
                   {nearbyMonths(payDue?.period_label).map((m) => {
                     const d = (payStudentDues as any[]).find((x) => x.period_label === m);
                     const label = d
-                      ? d.status === "paid"
+                      ? Number(d.paid_amount) >= Number(d.amount)
                         ? `${monthAr(m)} — مدفوع`
                         : `${monthAr(m)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`
                       : `${monthAr(m)} — بدون استحقاق`;
@@ -1019,7 +1020,7 @@ function NewPaymentForm({
 
   const selectedStudent = students.find((s: any) => s.id === studentId) as any;
   const selectedDue = studentDues.find((d: any) => d.period_label === period) as any;
-  const alreadyPaid = selectedDue?.status === "paid";
+  const alreadyPaid = !!selectedDue && Number(selectedDue.paid_amount) >= Number(selectedDue.amount);
   const base = selectedDue
     ? Number(selectedDue.amount) - Number(selectedDue.paid_amount)
     : studentAmount(selectedStudent);
@@ -1120,7 +1121,7 @@ function NewPaymentForm({
                 {monthOptions.map((m) => {
                   const d = studentDues.find((x: any) => x.period_label === m) as any;
                   const label = d
-                    ? d.status === "paid"
+                    ? Number(d.paid_amount) >= Number(d.amount)
                       ? `${monthAr(m)} — مدفوع`
                       : `${monthAr(m)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`
                     : `${monthAr(m)} — بدون استحقاق`;
