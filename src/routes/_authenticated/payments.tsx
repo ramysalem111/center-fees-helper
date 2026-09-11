@@ -543,6 +543,16 @@ function PaymentsPage() {
                           )}
                         </Button>
                       )}
+                      {Number(d.paid_amount) > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={() => { setManageDue(d); setPayEdit(null); }}
+                        >
+                          <Pencil className="size-4" /> تعديل / إلغاء الدفع
+                        </Button>
+                      )}
                       {waLink(d.students?.guardian_phone ?? d.students?.phone) && (
                         <Button asChild size="icon" variant="ghost">
                           <a
