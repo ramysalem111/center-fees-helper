@@ -208,7 +208,7 @@ function PaymentsPage() {
       }
       // مجموعة بلا طلاب ساريين ولا أي مبالغ مدفوعة => لا تظهر إطلاقاً
       return [...map.values()]
-        .filter((r) => r.students > 0 || r.paid > 0 || r.required > 0)
+        .filter((r) => r.students > 0)
         .sort((a, b) => b.remaining - a.remaining);
     },
   });
