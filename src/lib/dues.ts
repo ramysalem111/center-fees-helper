@@ -339,3 +339,26 @@ export async function applyPermanentExempt(studentId: string, on: boolean) {
     .eq("status", "exempt");
   if (error) throw error;
 }
+
+/**
+ * يضمن أن استحقاقات كل طالب (المدفوعة وغير المدفوعة) تابعة للمجموعة الحالية للطالب،
+ * حتى لا تظهر مجموعة قديمة في المدفوعات بعد نقل الطالب.
+ */
+export async function realignDueGroups() {
+  const { data: students } = await supabase
+    .from("students")
+    .select("id, group_id")
+    .not("group_id", "is", null);
+  if (!students?.length) return 0;
+  let moved = 0;
+  for (const s of students) {
+    const { data: rows } = await supabase
+      .from("dues")
+      .update({ group_id: s.group_id })
+      .eq("student_id", s.id)
+      .neq("group_id", s.group_id as string)
+      .select("id");
+    moved += rows?.length ?? 0;
+  }
+  return moved;
+}
