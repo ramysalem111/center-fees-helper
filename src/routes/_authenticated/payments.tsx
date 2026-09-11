@@ -42,6 +42,8 @@ function PaymentsPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [sumMonth, setSumMonth] = useState(monthLabel());
   const [editStudentId, setEditStudentId] = useState<string | null>(null);
+  const [manageDue, setManageDue] = useState<any | null>(null);
+  const [payEdit, setPayEdit] = useState<{ id: string; amount: string; paid_at: string } | null>(null);
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
