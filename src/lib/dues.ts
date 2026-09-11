@@ -214,12 +214,19 @@ export async function syncStudentDues(studentId: string) {
     .neq("group_id", s.group_id as string);
   for (const d of others ?? []) {
     // الطالب ينتقل بكل سجله المالي (حتى الأشهر المدفوعة) للمجموعة الجديدة
+    // وقيمة الاستحقاق تصبح باشتراك المجموعة الجديدة، فيظهر فرق الدفع كمتبقٍّ
+    const paid = Number(d.paid_amount ?? 0);
+    const value = studentAmount(s);
+    const status = d.status === "exempt"
+      ? "exempt"
+      : paid <= 0
+        ? "unpaid"
+        : paid >= value
+          ? "paid"
+          : "partial";
     await supabase
       .from("dues")
-      .update({
-        group_id: s.group_id,
-        amount: Number(d.paid_amount ?? 0) > 0 ? Number(d.amount ?? 0) : studentAmount(s),
-      })
+      .update({ group_id: s.group_id, amount: value, status })
       .eq("id", d.id);
   }
 
