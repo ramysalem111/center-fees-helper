@@ -682,7 +682,7 @@ function PaymentsPage() {
                   {nearbyMonths(payDue?.period_label).map((m) => {
                     const d = (payStudentDues as any[]).find((x) => x.period_label === m);
                     const label = d
-                      ? d.status === "paid"
+                      ? Number(d.paid_amount) >= Number(d.amount)
                         ? `${monthAr(m)} — مدفوع`
                         : `${monthAr(m)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`
                       : `${monthAr(m)} — بدون استحقاق`;
