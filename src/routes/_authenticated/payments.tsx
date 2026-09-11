@@ -104,7 +104,8 @@ function PaymentsPage() {
   useEffect(() => {
     if (autoGen.current) return;
     autoGen.current = true;
-    generateMonthlyDues()
+    purgeInactiveDues()
+      .then((removed) => generateMonthlyDues().then((n) => (removed || n ? 1 : 0)))
       .then((n) => { if (n) qc.invalidateQueries({ queryKey: ["dues"] }); })
       .catch(() => {});
   }, [qc]);
