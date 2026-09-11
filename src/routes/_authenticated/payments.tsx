@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BanIcon, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths, purgeInactiveDues, studentAmount } from "@/lib/dues";
+import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths, purgeInactiveDues, realignDueGroups, studentAmount } from "@/lib/dues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,8 @@ function PaymentsPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [sumMonth, setSumMonth] = useState(monthLabel());
   const [editStudentId, setEditStudentId] = useState<string | null>(null);
+  const [manageDue, setManageDue] = useState<any | null>(null);
+  const [payEdit, setPayEdit] = useState<{ id: string; amount: string; paid_at: string } | null>(null);
 
   const { data: lookups } = useQuery({
     queryKey: ["pay-lookups"],
@@ -104,7 +106,8 @@ function PaymentsPage() {
   useEffect(() => {
     if (autoGen.current) return;
     autoGen.current = true;
-    purgeInactiveDues()
+    realignDueGroups()
+      .then(() => purgeInactiveDues())
       .then((removed) => generateMonthlyDues().then((n) => (removed || n ? 1 : 0)))
       .then((n) => { if (n) qc.invalidateQueries({ queryKey: ["dues"] }); })
       .catch(() => {});
@@ -256,6 +259,76 @@ function PaymentsPage() {
       toast.success(next === "exempt" ? "تم إعفاء الطالب من هذا الشهر" : "تم إلغاء الإعفاء");
       qc.invalidateQueries({ queryKey: ["dues"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  /** دفعات الاستحقاق المختار — للتعديل أو الإلغاء */
+  const { data: duePayments = [] } = useQuery({
+    queryKey: ["due-payments", manageDue?.id],
+    enabled: !!manageDue?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payments")
+        .select("id, amount, paid_at, payment_methods(name)")
+        .eq("due_id", manageDue.id)
+        .order("paid_at", { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  const refreshAfterPayChange = () => {
+    qc.invalidateQueries({ queryKey: ["dues"] });
+    qc.invalidateQueries({ queryKey: ["due-payments"] });
+    qc.invalidateQueries({ queryKey: ["last-payments"] });
+    qc.invalidateQueries({ queryKey: ["payments-log"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const savePayEdit = useMutation({
+    mutationFn: async () => {
+      if (!payEdit || !manageDue) return;
+      const value = Number(payEdit.amount);
+      if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+      const { error } = await supabase
+        .from("payments")
+        .update({ amount: value, paid_at: payEdit.paid_at })
+        .eq("id", payEdit.id);
+      if (error) throw error;
+      await recomputeDue(manageDue.id);
+    },
+    onSuccess: () => {
+      toast.success("تم تعديل الدفعة");
+      setPayEdit(null);
+      refreshAfterPayChange();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelOnePay = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("payments").delete().eq("id", id);
+      if (error) throw error;
+      if (manageDue) await recomputeDue(manageDue.id);
+    },
+    onSuccess: () => {
+      toast.success("تم إلغاء الدفعة");
+      refreshAfterPayChange();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelAllPay = useMutation({
+    mutationFn: async () => {
+      if (!manageDue) return;
+      const { error } = await supabase.from("payments").delete().eq("due_id", manageDue.id);
+      if (error) throw error;
+      await recomputeDue(manageDue.id);
+    },
+    onSuccess: () => {
+      toast.success("تم إلغاء دفع هذا الشهر بالكامل");
+      setManageDue(null);
+      refreshAfterPayChange();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -470,6 +543,16 @@ function PaymentsPage() {
                           )}
                         </Button>
                       )}
+                      {Number(d.paid_amount) > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={() => { setManageDue(d); setPayEdit(null); }}
+                        >
+                          <Pencil className="size-4" /> تعديل / إلغاء الدفع
+                        </Button>
+                      )}
                       {waLink(d.students?.guardian_phone ?? d.students?.phone) && (
                         <Button asChild size="icon" variant="ghost">
                           <a
@@ -497,6 +580,87 @@ function PaymentsPage() {
       </Card>
 
       <StudentEditDialog studentId={editStudentId} onClose={() => setEditStudentId(null)} />
+
+      <Dialog open={!!manageDue} onOpenChange={(o) => { if (!o) { setManageDue(null); setPayEdit(null); } }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              دفعات {manageDue?.students?.full_name} — {manageDue ? monthAr(manageDue.period_label) : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {duePayments.length === 0 && <p className="text-sm text-muted-foreground">لا توجد دفعات مسجَّلة لهذا الشهر</p>}
+            {(duePayments as any[]).map((p) => (
+              <div key={p.id} className="rounded-lg border p-2">
+                {payEdit?.id === p.id ? (
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <Label>المبلغ</Label>
+                      <Input
+                        type="number"
+                        value={payEdit?.amount ?? ""}
+                        onChange={(e) => setPayEdit((v) => (v ? { ...v, amount: e.target.value } : v))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>تاريخ الدفع (استرشادي)</Label>
+                      <Input
+                        type="date"
+                        value={payEdit?.paid_at ?? ""}
+                        onChange={(e) => setPayEdit((v) => (v ? { ...v, paid_at: e.target.value } : v))}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" disabled={savePayEdit.isPending} onClick={() => savePayEdit.mutate()}>
+                        حفظ التعديل
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setPayEdit(null)}>إلغاء</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm">
+                      <strong>{EGP(p.amount)}</strong>
+                      <div className="text-xs text-muted-foreground">
+                        {dateAr(p.paid_at)} {p.payment_methods?.name ? `— ${p.payment_methods.name}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="تعديل الدفعة"
+                        onClick={() => setPayEdit({ id: p.id, amount: String(p.amount), paid_at: p.paid_at })}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="إلغاء الدفعة"
+                        disabled={cancelOnePay.isPending}
+                        onClick={() => cancelOnePay.mutate(p.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              إلغاء الدفع يعيد حالة الشهر إلى غير مدفوع (أو مدفوع جزئياً حسب المتبقي).
+            </p>
+          </div>
+          <DialogFooter>
+            {duePayments.length > 0 && (
+              <Button variant="destructive" disabled={cancelAllPay.isPending} onClick={() => cancelAllPay.mutate()}>
+                إلغاء دفع الشهر بالكامل
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!payDue} onOpenChange={(o) => { if (!o) { setPayDue(null); setPayPeriod(""); } }}>
         <DialogContent className="sm:max-w-md">
