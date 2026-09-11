@@ -197,7 +197,7 @@ export async function syncStudentDues(studentId: string) {
     .eq("student_id", studentId)
     .neq("group_id", s.group_id as string);
   for (const d of others ?? []) {
-    if (d.status === "paid") continue; // سجل مالي منتهي يبقى على مجموعته
+    // الطالب ينتقل بكل سجله المالي (حتى الأشهر المدفوعة) للمجموعة الجديدة
     await supabase
       .from("dues")
       .update({

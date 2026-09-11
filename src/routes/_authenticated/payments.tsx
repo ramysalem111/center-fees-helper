@@ -205,7 +205,10 @@ function PaymentsPage() {
           note: `${g.is_active && g.activated_at ? "لم تُولَّد استحقاقات هذا الشهر" : "المجموعة غير مُفعَّلة"} — المتوقع ${expected}`,
         });
       }
-      return [...map.values()].sort((a, b) => b.remaining - a.remaining);
+      // مجموعة بلا طلاب ساريين ولا أي مبالغ مدفوعة => لا تظهر إطلاقاً
+      return [...map.values()]
+        .filter((r) => r.students > 0 || r.paid > 0 || r.required > 0)
+        .sort((a, b) => b.remaining - a.remaining);
     },
   });
   const sumTotals = groupSummary.reduce(
