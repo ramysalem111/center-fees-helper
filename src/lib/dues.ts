@@ -152,6 +152,22 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
  * عند إيقاف الطالب أو إخراجه من المجموعة: حذف الاستحقاقات غير المدفوعة
  * (الاستحقاقات المدفوعة أو المدفوعة جزئياً تبقى كسجل مالي).
  */
+export async function purgeInactiveDues() {
+  const { data: bad } = await supabase
+    .from("students")
+    .select("id, status, archived")
+    .or("status.neq.active,archived.eq.true");
+  const ids = (bad ?? []).map((s) => s.id);
+  if (!ids.length) return 0;
+  const { data: removed } = await supabase
+    .from("dues")
+    .delete()
+    .in("student_id", ids)
+    .lte("paid_amount", 0)
+    .select("id");
+  return removed?.length ?? 0;
+}
+
 export async function removeUnpaidDues(studentId: string, groupId?: string | null) {
   let q = supabase
     .from("dues")

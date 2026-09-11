@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BanIcon, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Wallet } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths, studentAmount } from "@/lib/dues";
+import { ensureDueForMonth, generateMonthlyDues, monthAr, nearbyMonths, purgeInactiveDues, studentAmount } from "@/lib/dues";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,7 +104,8 @@ function PaymentsPage() {
   useEffect(() => {
     if (autoGen.current) return;
     autoGen.current = true;
-    generateMonthlyDues()
+    purgeInactiveDues()
+      .then((removed) => generateMonthlyDues().then((n) => (removed || n ? 1 : 0)))
       .then((n) => { if (n) qc.invalidateQueries({ queryKey: ["dues"] }); })
       .catch(() => {});
   }, [qc]);
@@ -207,7 +208,7 @@ function PaymentsPage() {
       }
       // مجموعة بلا طلاب ساريين ولا أي مبالغ مدفوعة => لا تظهر إطلاقاً
       return [...map.values()]
-        .filter((r) => r.students > 0 || r.paid > 0 || r.required > 0)
+        .filter((r) => r.students > 0)
         .sort((a, b) => b.remaining - a.remaining);
     },
   });
