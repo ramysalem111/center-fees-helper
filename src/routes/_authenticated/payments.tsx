@@ -262,6 +262,76 @@ function PaymentsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** دفعات الاستحقاق المختار — للتعديل أو الإلغاء */
+  const { data: duePayments = [] } = useQuery({
+    queryKey: ["due-payments", manageDue?.id],
+    enabled: !!manageDue?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payments")
+        .select("id, amount, paid_at, payment_methods(name)")
+        .eq("due_id", manageDue.id)
+        .order("paid_at", { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  const refreshAfterPayChange = () => {
+    qc.invalidateQueries({ queryKey: ["dues"] });
+    qc.invalidateQueries({ queryKey: ["due-payments"] });
+    qc.invalidateQueries({ queryKey: ["last-payments"] });
+    qc.invalidateQueries({ queryKey: ["payments-log"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const savePayEdit = useMutation({
+    mutationFn: async () => {
+      if (!payEdit || !manageDue) return;
+      const value = Number(payEdit.amount);
+      if (!value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+      const { error } = await supabase
+        .from("payments")
+        .update({ amount: value, paid_at: payEdit.paid_at })
+        .eq("id", payEdit.id);
+      if (error) throw error;
+      await recomputeDue(manageDue.id);
+    },
+    onSuccess: () => {
+      toast.success("تم تعديل الدفعة");
+      setPayEdit(null);
+      refreshAfterPayChange();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelOnePay = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("payments").delete().eq("id", id);
+      if (error) throw error;
+      if (manageDue) await recomputeDue(manageDue.id);
+    },
+    onSuccess: () => {
+      toast.success("تم إلغاء الدفعة");
+      refreshAfterPayChange();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelAllPay = useMutation({
+    mutationFn: async () => {
+      if (!manageDue) return;
+      const { error } = await supabase.from("payments").delete().eq("due_id", manageDue.id);
+      if (error) throw error;
+      await recomputeDue(manageDue.id);
+    },
+    onSuccess: () => {
+      toast.success("تم إلغاء دفع هذا الشهر بالكامل");
+      setManageDue(null);
+      refreshAfterPayChange();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-4">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
