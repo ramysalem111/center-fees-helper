@@ -598,8 +598,8 @@ function PaymentsPage() {
                       <Label>المبلغ</Label>
                       <Input
                         type="number"
-                        value={payEdit.amount}
-                        onChange={(e) => setPayEdit({ ...payEdit, amount: e.target.value })}
+                        value={payEdit?.amount ?? ""}
+                        onChange={(e) => setPayEdit((v) => (v ? { ...v, amount: e.target.value } : v))}
                       />
                     </div>
                     <div className="space-y-1.5">
