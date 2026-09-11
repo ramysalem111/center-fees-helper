@@ -1121,7 +1121,7 @@ function NewPaymentForm({
                 {monthOptions.map((m) => {
                   const d = studentDues.find((x: any) => x.period_label === m) as any;
                   const label = d
-                    ? d.status === "paid"
+                    ? Number(d.paid_amount) >= Number(d.amount)
                       ? `${monthAr(m)} — مدفوع`
                       : `${monthAr(m)} — متبقي ${Number(d.amount) - Number(d.paid_amount)}`
                     : `${monthAr(m)} — بدون استحقاق`;
