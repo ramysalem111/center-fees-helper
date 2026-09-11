@@ -581,6 +581,87 @@ function PaymentsPage() {
 
       <StudentEditDialog studentId={editStudentId} onClose={() => setEditStudentId(null)} />
 
+      <Dialog open={!!manageDue} onOpenChange={(o) => { if (!o) { setManageDue(null); setPayEdit(null); } }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              دفعات {manageDue?.students?.full_name} — {manageDue ? monthAr(manageDue.period_label) : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {duePayments.length === 0 && <p className="text-sm text-muted-foreground">لا توجد دفعات مسجَّلة لهذا الشهر</p>}
+            {(duePayments as any[]).map((p) => (
+              <div key={p.id} className="rounded-lg border p-2">
+                {payEdit?.id === p.id ? (
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <Label>المبلغ</Label>
+                      <Input
+                        type="number"
+                        value={payEdit.amount}
+                        onChange={(e) => setPayEdit({ ...payEdit, amount: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>تاريخ الدفع (استرشادي)</Label>
+                      <Input
+                        type="date"
+                        value={payEdit.paid_at}
+                        onChange={(e) => setPayEdit({ ...payEdit, paid_at: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" disabled={savePayEdit.isPending} onClick={() => savePayEdit.mutate()}>
+                        حفظ التعديل
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setPayEdit(null)}>إلغاء</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm">
+                      <strong>{EGP(p.amount)}</strong>
+                      <div className="text-xs text-muted-foreground">
+                        {dateAr(p.paid_at)} {p.payment_methods?.name ? `— ${p.payment_methods.name}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="تعديل الدفعة"
+                        onClick={() => setPayEdit({ id: p.id, amount: String(p.amount), paid_at: p.paid_at })}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="إلغاء الدفعة"
+                        disabled={cancelOnePay.isPending}
+                        onClick={() => cancelOnePay.mutate(p.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              إلغاء الدفع يعيد حالة الشهر إلى غير مدفوع (أو مدفوع جزئياً حسب المتبقي).
+            </p>
+          </div>
+          <DialogFooter>
+            {duePayments.length > 0 && (
+              <Button variant="destructive" disabled={cancelAllPay.isPending} onClick={() => cancelAllPay.mutate()}>
+                إلغاء دفع الشهر بالكامل
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!payDue} onOpenChange={(o) => { if (!o) { setPayDue(null); setPayPeriod(""); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>تسجيل دفعة — {payDue?.students?.full_name}</DialogTitle></DialogHeader>
