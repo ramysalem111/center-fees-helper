@@ -606,8 +606,8 @@ function PaymentsPage() {
                       <Label>تاريخ الدفع (استرشادي)</Label>
                       <Input
                         type="date"
-                        value={payEdit.paid_at}
-                        onChange={(e) => setPayEdit({ ...payEdit, paid_at: e.target.value })}
+                        value={payEdit?.paid_at ?? ""}
+                        onChange={(e) => setPayEdit((v) => (v ? { ...v, paid_at: e.target.value } : v))}
                       />
                     </div>
                     <div className="flex gap-2">
