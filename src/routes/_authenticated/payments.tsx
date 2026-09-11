@@ -133,7 +133,8 @@ function PaymentsPage() {
       if (!payDue || !value || value <= 0) throw new Error("أدخل مبلغاً صحيحاً");
       const label = payPeriod || payDue.period_label;
       const target = await ensureDueForMonth(payDue.student_id, payDue.group_id ?? null, label);
-      if (target.status === "paid") throw new Error("هذا الشهر محصَّل بالكامل — اختر شهراً آخر");
+      if (Number((target as any).paid_amount ?? 0) >= Number((target as any).amount ?? 0))
+        throw new Error("هذا الشهر محصَّل بالكامل — اختر شهراً آخر");
       const { error } = await supabase.from("payments").insert({
         student_id: payDue.student_id,
         due_id: target.id,
