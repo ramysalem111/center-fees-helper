@@ -142,6 +142,9 @@ export function StudentEditDialog({
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["students-counts"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
+      qc.invalidateQueries({ queryKey: ["payments-log"] });
+      qc.invalidateQueries({ queryKey: ["last-payments"] });
+      qc.invalidateQueries({ queryKey: ["pay-students"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["student-edit"] });
       onClose();
