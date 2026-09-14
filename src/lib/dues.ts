@@ -210,7 +210,7 @@ export async function syncStudentDues(studentId: string) {
   // حساب المدفوع من الدفعات نفسها حتى لا يظهر شهر قديم كأنه غير مدفوع.
   const { data: studentDues, error: duesError } = await supabase
     .from("dues")
-    .select("id, group_id, amount, paid_amount, status, payments(amount)")
+    .select("id, group_id, period_label, amount, paid_amount, status, payments(amount)")
     .eq("student_id", studentId);
   if (duesError) throw duesError;
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -368,7 +368,7 @@ export async function realignDueGroups() {
   for (const s of students) {
     const { data: dues } = await supabase
       .from("dues")
-    .select("id, group_id, period_label, amount, paid_amount, status, payments(amount)")
+      .select("id, group_id, period_label, amount, paid_amount, status, payments(amount)")
       .eq("student_id", s.id)
       .or(`group_id.neq.${s.group_id},group_id.is.null`);
     for (const due of dues ?? []) {
