@@ -190,6 +190,9 @@ function StudentsPage() {
       qc.invalidateQueries({ queryKey: ["group-active-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["dues"] });
+      qc.invalidateQueries({ queryKey: ["payments-log"] });
+      qc.invalidateQueries({ queryKey: ["last-payments"] });
+      qc.invalidateQueries({ queryKey: ["pay-students"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
