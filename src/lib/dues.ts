@@ -213,12 +213,16 @@ export async function syncStudentDues(studentId: string) {
     .select("id, group_id, amount, paid_amount, status, payments(amount)")
     .eq("student_id", studentId);
   if (duesError) throw duesError;
+  const currentMonth = new Date().toISOString().slice(0, 7);
   for (const d of studentDues ?? []) {
     const paid = ((d as any).payments ?? []).reduce(
       (sum: number, payment: any) => sum + Number(payment.amount ?? 0),
       0,
     );
-    const value = studentAmount(s);
+    // الشهور السابقة تظل بقيمتها التاريخية؛ الشهر الحالي وما بعده يتبع اشتراك المجموعة الجديدة.
+    const value = String((d as any).period_label ?? "") < currentMonth
+      ? Number(d.amount ?? 0)
+      : studentAmount(s);
     const status = d.status === "exempt"
       ? "exempt"
       : paid <= 0
@@ -359,11 +363,12 @@ export async function realignDueGroups() {
     .select("id, group_id, final_amount, fee, discount, exemption")
     .not("group_id", "is", null);
   if (!students?.length) return 0;
+  const currentMonth = new Date().toISOString().slice(0, 7);
   let moved = 0;
   for (const s of students) {
     const { data: dues } = await supabase
       .from("dues")
-      .select("id, group_id, amount, paid_amount, status, payments(amount)")
+    .select("id, group_id, period_label, amount, paid_amount, status, payments(amount)")
       .eq("student_id", s.id)
       .or(`group_id.neq.${s.group_id},group_id.is.null`);
     for (const due of dues ?? []) {
@@ -371,7 +376,9 @@ export async function realignDueGroups() {
         (sum: number, payment: any) => sum + Number(payment.amount ?? 0),
         0,
       );
-      const amount = studentAmount(s);
+      const amount = String((due as any).period_label ?? "") < currentMonth
+        ? Number(due.amount ?? 0)
+        : studentAmount(s);
       const status = due.status === "exempt"
         ? "exempt"
         : paid <= 0
