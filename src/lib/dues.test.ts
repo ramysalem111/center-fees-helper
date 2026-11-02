@@ -1,21 +1,21 @@
 import { afterEach, expect, mock, test } from "bun:test";
 
-const responses: Record<string, unknown[]> = {};
-const inserted: Record<string, unknown>[] = [];
+const responses = {};
+const inserted = [];
 
 mock.module("@/integrations/supabase/client", () => ({
   supabase: {
-    from(table: string) {
-      const result = { data: responses[table]?.shift() ?? [], error: null };
-      const chain: Record<string, unknown> = {};
+    from(table) {
+      const result = { data: responses[table]?.length ? responses[table].shift() : [], error: null };
+      const chain = {};
       for (const method of ["select", "eq", "in", "order", "limit", "maybeSingle", "single"]) {
         chain[method] = () => chain;
       }
-      chain.insert = (rows: Record<string, unknown>[] | Record<string, unknown>) => {
+      chain.insert = (rows) => {
         inserted.push(...(Array.isArray(rows) ? rows : [rows]));
         return chain;
       };
-      chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);
+      chain.then = (resolve) => Promise.resolve(result).then(resolve);
       return chain;
     },
   },
