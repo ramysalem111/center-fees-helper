@@ -138,7 +138,7 @@ export async function generateGroupMonthlyDues(groupId: string, activatedAt?: st
         amount: studentAmount(s),
         period_label: label,
         due_date: `${label}-01`,
-        ...((s as any).permanent_exempt ? { status: "exempt" as const } : {}),
+        status: s.permanent_exempt ? "exempt" : "unpaid",
       });
     }
   }
@@ -268,9 +268,12 @@ export async function syncStudentDues(studentId: string) {
       amount: studentAmount(s),
       period_label: l,
       due_date: `${l}-01`,
-      ...((s as any).permanent_exempt ? { status: "exempt" as const } : {}),
+      status: s.permanent_exempt ? "exempt" as const : "unpaid" as const,
     }));
-  if (rows.length) await supabase.from("dues").insert(rows);
+  if (rows.length) {
+    const { error } = await supabase.from("dues").insert(rows);
+    if (error) throw error;
+  }
 }
 
 /** يضمن وجود استحقاق لشهر محدد لطالب محدد ويرجعه (لمنع التكرار) */
@@ -310,6 +313,7 @@ export async function ensureDueForMonth(studentId: string, groupId: string | nul
       amount: studentAmount(student),
       period_label: label,
       due_date: `${label}-01`,
+      status: "unpaid",
     })
     .select("*")
     .single();
