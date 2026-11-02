@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Every dues insert must explicitly supply a non-null status, including each row in a batch, because mixed optional keys are converted to null by the Data API instead of using column defaults.
